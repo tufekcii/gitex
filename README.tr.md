@@ -574,8 +574,8 @@ uv run ruff check . && uv run ruff format --check .
 uv run mypy                                        # strict
 ```
 
-CI (`.gitlab-ci.yml`) her push'ta lint, tip denetimi, testler ve temiz bir makinede `install.sh`
-kurulumunu çalıştırır.
+CI ([GitHub Actions](.github/workflows/ci.yml)) her push ve pull request'te lint ve tip denetimini,
+Linux ve Windows'ta testleri, temiz Linux ve Windows makinelerde de kurulumu uçtan uca çalıştırır.
 
 <details>
 <summary><b>Kaldırma</b></summary>

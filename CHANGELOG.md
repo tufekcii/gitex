@@ -36,6 +36,7 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esaslıdır; sü
   uv'ye bırakılmadan doğrulanıyor.
 
 ### Değişti
+- CI GitLab'dan GitHub Actions'a taşındı: Linux ve Windows'ta testler, iki sistemde de temiz makinede kurulum.
 - `gitex when --json` çıktısındaki `kind` alanı dilden bağımsız kodlar oldu: `added` / `removed` / `changed`.
 - `gitex init` artık etkin ayar yazmaz; oluşturduğu dosya yalnızca açıklama içerir ve global
   ayarları gölgelemez.

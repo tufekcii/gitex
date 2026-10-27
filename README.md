@@ -577,8 +577,9 @@ uv run ruff check . && uv run ruff format --check .
 uv run mypy                                        # strict
 ```
 
-CI (`.gitlab-ci.yml`) runs lint, type checking, tests and a clean-machine run of `install.sh` on
-every push.
+CI ([GitHub Actions](.github/workflows/ci.yml)) runs lint and type checking, the test suite on
+Linux and Windows, and the installer end to end on clean Linux and Windows machines for every push
+and pull request.
 
 <details>
 <summary><b>Uninstall</b></summary>
