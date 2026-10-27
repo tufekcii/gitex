@@ -195,7 +195,7 @@ def test_setup_claude_wizard(
         "",  # mod: önerilen (agent)
         "",  # GitLab: önerilen (Hayır; remote yok)
     )
-    r = _run(fixture_repo.path, "setup", "--no-check", input=answers)
+    r = _run(fixture_repo.path, "setup", "--lang", "tr", "--no-check", input=answers)
     assert r.exit_code == 0, r.output
     cfg = load_config(fixture_repo.path)
     assert (cfg.llm.provider, cfg.llm.model, cfg.llm.mode) == (
@@ -221,6 +221,8 @@ def test_setup_groq_lists_models_after_key(
     r = _run(
         fixture_repo.path,
         "setup",
+        "--lang",
+        "tr",
         "--no-check",
         input=_answers(GROQ, "gsk_" + "z" * 20, "2", "", ""),
     )
@@ -246,6 +248,8 @@ def test_setup_model_list_failure_falls_back_to_manual(
     r = _run(
         fixture_repo.path,
         "setup",
+        "--lang",
+        "tr",
         "--no-check",
         input=_answers(GEMINI, "", "gemini-elle", "", ""),
     )
@@ -263,6 +267,8 @@ def test_setup_many_models_search_and_manual(
     r = _run(
         fixture_repo.path,
         "setup",
+        "--lang",
+        "tr",
         "--no-check",
         input=_answers(OPENROUTER, "or-key", "70b", "1", "", ""),
     )
@@ -274,6 +280,8 @@ def test_setup_many_models_search_and_manual(
     r = _run(
         fixture_repo.path,
         "setup",
+        "--lang",
+        "tr",
         "--no-check",
         input=_answers(
             OPENROUTER,
@@ -312,7 +320,7 @@ def test_setup_ollama_with_gitlab_detected_from_remote(
         "",  # token atla
         "",  # senkron: önerilen Hayır (token yok)
     )
-    r = _run(fixture_repo.path, "setup", "--no-check", input=answers)
+    r = _run(fixture_repo.path, "setup", "--lang", "tr", "--no-check", input=answers)
     assert r.exit_code == 0, r.output
     cfg = load_config(fixture_repo.path)
     assert cfg.llm.base_url == "http://localhost:11434/v1"
@@ -331,6 +339,8 @@ def test_choose_rejects_out_of_range(
     r = _run(
         fixture_repo.path,
         "setup",
+        "--lang",
+        "tr",
         "--no-check",
         input=_answers("99", "abc", OLLAMA, "", "", "", ""),
     )

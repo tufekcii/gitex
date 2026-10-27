@@ -9,6 +9,7 @@ import pytest
 from keyring.backend import KeyringBackend
 from keyring.errors import PasswordDeleteError
 
+from gitex import i18n
 from gitex.evals.fixture import FixtureRepo, build_fixture_repo
 from gitex.git.reader import GitRepo
 from gitex.index.db import Database
@@ -34,6 +35,9 @@ def _isolated_env(
         "ANTHROPIC_API_KEY",
     ):
         monkeypatch.delenv(name, raising=False)
+    # Testler varsayılan olarak Türkçe arayüzle çalışır (sistem dilinden bağımsız).
+    monkeypatch.setenv("GITEX_LANG", "tr")
+    i18n.reset()
 
 
 class MemoryKeyring(KeyringBackend):

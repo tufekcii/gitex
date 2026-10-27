@@ -15,6 +15,7 @@ from gitex.agent.prompts import (
     correction_message,
 )
 from gitex.agent.tools import Toolbox
+from gitex.i18n import t
 from gitex.llm.base import LLMProvider, Message
 
 # (olay türü, veri) — CLI bunları sade satırlar olarak gösterir.
@@ -234,7 +235,10 @@ def run_agent(
             messages.append(Message("user", BUDGET_EXHAUSTED))
             budget_noted = True
     if not answer.strip():
-        answer = "Bir cevap üretilemedi (model boş yanıt döndü ya da araç bütçesi aşıldı)."
+        answer = t(
+            "Bir cevap üretilemedi (model boş yanıt döndü ya da araç bütçesi aşıldı).",
+            "No answer could be produced (the model returned nothing or the tool budget ran out).",
+        )
     finalize(provider, toolbox, messages, answer, result, on_event)
     # Chat geçmişinde düzeltme turu yerine son (doğrulanmış) cevap kalsın.
     if messages and messages[-1].role == "user" and result.corrected:

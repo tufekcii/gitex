@@ -18,10 +18,11 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 from gitex import credentials
 from gitex.errors import ConfigError
+from gitex.i18n import t
+from gitex.paths import CONFIG_FILE, GITEX_DIR, INDEX_FILE, user_config_path
 
-GITEX_DIR = ".gitex"
-CONFIG_FILE = "config.toml"
-INDEX_FILE = "index.db"
+__all__ = ["CONFIG_FILE", "GITEX_DIR", "INDEX_FILE", "user_config_path"]
+
 GITLAB_TOKEN_ENV = "GITEX_GITLAB_TOKEN"
 
 
@@ -86,7 +87,13 @@ class GitLabConfig(_Section):
         return credentials.gitlab_key_name(self.url)
 
 
+class UIConfig(_Section):
+    # None: işletim sisteminin dili. Yalnızca global config'ten okunur (gitex.i18n).
+    language: Literal["tr", "en"] | None = None
+
+
 class Config(_Section):
+    ui: UIConfig = Field(default_factory=UIConfig)
     llm: LLMConfig = Field(default_factory=LLMConfig)
     privacy: PrivacyConfig = Field(default_factory=PrivacyConfig)
     gitlab: GitLabConfig = Field(default_factory=GitLabConfig)
@@ -101,13 +108,6 @@ _ENV_OVERRIDES: dict[str, tuple[str, str]] = {
     "GITEX_GITLAB_URL": ("gitlab", "url"),
     "GITEX_GITLAB_PROJECT": ("gitlab", "project"),
 }
-
-
-def user_config_path() -> Path:
-    if env := os.environ.get("GITEX_CONFIG"):
-        return Path(env)
-    base = os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
-    return Path(base) / "gitex" / CONFIG_FILE
 
 
 def repo_dir(repo_root: Path) -> Path:
@@ -133,7 +133,14 @@ def _read_toml(path: Path) -> dict[str, Any]:
         with path.open("rb") as fh:
             return tomllib.load(fh)
     except tomllib.TOMLDecodeError as exc:
-        raise ConfigError(f"Config dosyası okunamadı: {path}: {exc}") from exc
+        raise ConfigError(
+            t(
+                "Ayar dosyası okunamadı: {p}: {e}",
+                "Could not read settings file: {p}: {e}",
+                p=path,
+                e=exc,
+            )
+        ) from exc
 
 
 def load_config(repo_root: Path | None = None, *, use_env: bool = True) -> Config:
@@ -154,7 +161,8 @@ def load_config(repo_root: Path | None = None, *, use_env: bool = True) -> Confi
         cfg = Config.model_validate(data)
     except ValidationError as exc:
         raise ConfigError(
-            f"Config geçersiz:\n{exc}", hint=f"Kontrol edin: {', '.join(sources) or 'env'}"
+            t("Ayarlar geçersiz:\n{e}", "Invalid settings:\n{e}", e=exc),
+            hint=t("Kontrol edin: {s}", "Check: {s}", s=", ".join(sources) or "env"),
         ) from exc
     cfg.sources = sources
     return cfg
@@ -163,6 +171,7 @@ def load_config(repo_root: Path | None = None, *, use_env: bool = True) -> Confi
 # ---------------------------------------------------------------------- yazma (gitex config)
 
 SECTIONS: dict[str, type[_Section]] = {
+    "ui": UIConfig,
     "llm": LLMConfig,
     "privacy": PrivacyConfig,
     "gitlab": GitLabConfig,
@@ -176,8 +185,11 @@ def config_path(scope: Literal["global", "repo"], repo_root: Path | None) -> Pat
         return user_config_path()
     if repo_root is None:
         raise ConfigError(
-            "Bir git deposunun içinde değilsiniz.",
-            hint="Tüm depolar için ayar yapmak üzere --global kullanın.",
+            t("Bir git deposunun içinde değilsiniz.", "You are not inside a git repository."),
+            hint=t(
+                "Tüm depolar için ayar yapmak üzere --global kullanın.",
+                "Use --global to change the setting for all repositories.",
+            ),
         )
     return repo_dir(repo_root) / CONFIG_FILE
 
@@ -190,7 +202,11 @@ def split_key(key: str) -> tuple[str, str]:
     section, _, field = key.partition(".")
     if section not in SECTIONS or field not in SECTIONS[section].model_fields:
         raise ConfigError(
-            f"Bilinmeyen ayar: {key}", hint="Geçerli ayarlar için: gitex config list-keys"
+            t("Bilinmeyen ayar: {k}", "Unknown setting: {k}", k=key),
+            hint=t(
+                "Geçerli ayarlar için: gitex config list-keys",
+                "Valid settings: gitex config list-keys",
+            ),
         )
     return section, field
 
@@ -204,13 +220,20 @@ def _coerce(section: str, field: str, raw: str) -> Any:
             return True
         if text.lower() in _FALSE:
             return False
-        raise ConfigError(f"{section}.{field} için evet/hayır (true/false) bekleniyor: {raw}")
+        raise ConfigError(
+            t(
+                "{k} için evet/hayır (true/false) bekleniyor: {r}",
+                "{k} expects yes/no (true/false): {r}",
+                k=f"{section}.{field}",
+                r=raw,
+            )
+        )
     if typing.get_origin(annotation) is list or list in args:
         if text.startswith("["):
             try:
                 value = json.loads(text)
             except json.JSONDecodeError as exc:
-                raise ConfigError(f"Geçersiz liste: {raw}") from exc
+                raise ConfigError(t("Geçersiz liste: {r}", "Invalid list: {r}", r=raw)) from exc
             return [str(v) for v in value]
         return [part.strip() for part in text.split(",") if part.strip()]
     return text
@@ -223,7 +246,14 @@ def _load_doc(path: Path) -> Any:
         try:
             return tomlkit.parse(path.read_text(encoding="utf-8"))
         except Exception as exc:
-            raise ConfigError(f"Config dosyası okunamadı: {path}: {exc}") from exc
+            raise ConfigError(
+                t(
+                    "Ayar dosyası okunamadı: {p}: {e}",
+                    "Could not read settings file: {p}: {e}",
+                    p=path,
+                    e=exc,
+                )
+            ) from exc
     return tomlkit.document()
 
 
@@ -239,10 +269,24 @@ def set_value(path: Path, key: str, raw: str) -> Any:
         model = SECTIONS[section].model_validate(current)
     except ValidationError as exc:
         msg = "; ".join(e["msg"] for e in exc.errors())
-        raise ConfigError(f"{key} için geçersiz değer '{raw}': {msg}") from exc
+        raise ConfigError(
+            t(
+                "{k} için geçersiz değer '{r}': {m}",
+                "Invalid value '{r}' for {k}: {m}",
+                k=key,
+                r=raw,
+                m=msg,
+            )
+        ) from exc
     value = getattr(model, field)
     if value is None:
-        raise ConfigError(f"{key} boş bırakılamaz; kaldırmak için: gitex config unset {key}")
+        raise ConfigError(
+            t(
+                "{k} boş bırakılamaz; kaldırmak için: gitex config unset {k}",
+                "{k} cannot be empty; to remove it: gitex config unset {k}",
+                k=key,
+            )
+        )
     if section not in doc:
         doc[section] = tomlkit.table()
     doc[section][field] = value
@@ -266,8 +310,8 @@ def unset_value(path: Path, key: str) -> bool:
 
 
 def value_sources(repo_root: Path | None) -> dict[str, str]:
-    """Her ayarın etkin değerinin nereden geldiği: varsayılan | global | repo | env."""
-    origin = dict.fromkeys(all_keys(), "varsayılan")
+    """Her ayarın etkin değerinin nereden geldiği: default | global | repo | env (AD)."""
+    origin = dict.fromkeys(all_keys(), "default")
     layers: list[tuple[str, Path]] = [("global", user_config_path())]
     if repo_root is not None:
         layers.append(("repo", repo_dir(repo_root) / CONFIG_FILE))
@@ -283,10 +327,21 @@ def value_sources(repo_root: Path | None) -> dict[str, str]:
     return origin
 
 
-SAMPLE_CONFIG = """# gitex repo ayarları. Bu dosyayı elle düzenlemeniz gerekmez:
+def sample_config() -> str:
+    """`gitex init`'in depoya yazdığı, yalnızca açıklama içeren dosya (seçili dilde)."""
+    return t(
+        """# gitex repo ayarları. Bu dosyayı elle düzenlemeniz gerekmez:
 #   gitex setup                         # adım adım kurulum
 #   gitex config set llm.model <ad>     # tek bir ayar (--global: tüm depolar)
 #   gitex config show                   # etkin ayarlar ve kaynakları
 # Buraya yazılan ayarlar yalnızca bu depo için geçerlidir ve global ayarları ezer.
 # Sırlar (API anahtarı, token) bu dosyaya YAZILMAZ: gitex auth login
-"""
+""",
+        """# gitex settings for this repository. You never need to edit this file:
+#   gitex setup                           # guided setup
+#   gitex config set llm.model <name>     # one setting (--global: all repositories)
+#   gitex config show                     # effective settings and their sources
+# Settings written here apply to this repository only and override global settings.
+# Secrets (API keys, tokens) are NEVER written here: gitex auth login
+""",
+    )

@@ -6,6 +6,7 @@ from typing import Any
 
 from gitex.config import LLMConfig
 from gitex.errors import LLMError
+from gitex.i18n import t
 from gitex.llm.base import LLMResponse, Message, ToolCall, ToolSpec
 
 DEFAULT_MODEL = "claude-opus-5-5"
@@ -95,8 +96,11 @@ class AnthropicProvider:
                 client = anthropic.Anthropic(**kwargs)
             except anthropic.AnthropicError as exc:
                 raise LLMError(
-                    "Claude API istemcisi oluşturulamadı (kimlik bilgisi yok).",
-                    hint=f"`{cfg.api_key_env}` ya da ANTHROPIC_API_KEY ortam değişkenini ayarlayın.",
+                    t(
+                        "Claude API istemcisi oluşturulamadı (API anahtarı yok).",
+                        "Could not create the Claude API client (no API key).",
+                    ),
+                    hint=t("Anahtarı girin: gitex auth login", "Enter your key: gitex auth login"),
                 ) from exc
         self.client = client
 
@@ -120,25 +124,45 @@ class AnthropicProvider:
             resp = self.client.messages.create(**kwargs)
         except anthropic.APIConnectionError as exc:
             raise LLMError(
-                "Claude API'ye ulaşılamıyor.",
-                hint="Ağ bağlantısını ve `llm.base_url` ayarını kontrol edin.",
+                t("Claude API'ye ulaşılamıyor.", "Cannot reach the Claude API."),
+                hint=t(
+                    "İnternet bağlantınızı kontrol edin: gitex doctor",
+                    "Check your internet connection: gitex doctor",
+                ),
             ) from exc
         except anthropic.AuthenticationError as exc:
             raise LLMError(
-                "Claude API kimlik doğrulaması başarısız.",
-                hint=f"`{self.cfg.api_key_env}` (ya da ANTHROPIC_API_KEY) ortam değişkenini kontrol edin.",
+                t(
+                    "Claude API kimlik doğrulaması başarısız (API anahtarı geçersiz).",
+                    "Claude API authentication failed (invalid API key).",
+                ),
+                hint=t("Anahtarı yenileyin: gitex auth login", "Update the key: gitex auth login"),
             ) from exc
         except anthropic.NotFoundError as exc:
             raise LLMError(
-                f"Model bulunamadı: {self.model}", hint="`llm.model` ayarını kontrol edin."
+                t("Model bulunamadı: {m}", "Model not found: {m}", m=self.model),
+                hint=t("Modeli yeniden seçin: gitex setup", "Choose the model again: gitex setup"),
             ) from exc
         except anthropic.APIStatusError as exc:
-            raise LLMError(f"Claude API hatası ({exc.status_code}): {exc.message}") from exc
+            raise LLMError(
+                t(
+                    "Claude API hatası ({c}): {m}",
+                    "Claude API error ({c}): {m}",
+                    c=exc.status_code,
+                    m=exc.message,
+                )
+            ) from exc
 
         if resp.stop_reason == "refusal":
             details = getattr(resp, "stop_details", None)
             category = getattr(details, "category", None) if details else None
-            raise LLMError(f"Model isteği reddetti (kategori: {category or 'belirtilmedi'}).")
+            raise LLMError(
+                t(
+                    "Model isteği reddetti (kategori: {c}).",
+                    "The model declined the request (category: {c}).",
+                    c=category or t("belirtilmedi", "not given"),
+                )
+            )
 
         texts: list[str] = []
         calls: list[ToolCall] = []

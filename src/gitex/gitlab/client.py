@@ -8,6 +8,7 @@ from typing import Any
 
 from gitex.config import GitLabConfig
 from gitex.errors import GitLabError
+from gitex.i18n import t
 
 WANTED_STATES = frozenset({"merged", "opened"})
 
@@ -42,7 +43,11 @@ class GitLabClient:
     def __init__(self, cfg: GitLabConfig, token: str | None, gl: Any = None) -> None:
         if not cfg.project:
             raise GitLabError(
-                "GitLab projesi ayarlanmamış.", hint='[gitlab] project = "grup/proje"'
+                t("GitLab projesi ayarlanmamış.", "No GitLab project is set."),
+                hint=t(
+                    "gitex config set gitlab.project grup/proje",
+                    "gitex config set gitlab.project group/project",
+                ),
             )
         self.cfg = cfg
         if gl is None:
@@ -65,22 +70,40 @@ class GitLabClient:
 
         if isinstance(exc, gitlab.GitlabAuthenticationError):
             return GitLabError(
-                "GitLab kimlik doğrulaması başarısız.",
-                hint="GITEX_GITLAB_TOKEN ortam değişkenine `read_api` yetkili bir token verin.",
+                t("GitLab kimlik doğrulaması başarısız.", "GitLab authentication failed."),
+                hint=t(
+                    "`read_api` yetkili bir token girin: gitex auth login gitlab",
+                    "Enter a token with `read_api` scope: gitex auth login gitlab",
+                ),
             )
         if (
             isinstance(exc, gitlab.GitlabGetError | gitlab.GitlabListError)
             and getattr(exc, "response_code", None) == 404
         ):
             return GitLabError(
-                f"GitLab projesi bulunamadı: {self.cfg.project}",
-                hint="`gitlab.project` (grup/proje ya da ID) ve token yetkisini kontrol edin.",
+                t(
+                    "GitLab projesi bulunamadı: {p}",
+                    "GitLab project not found: {p}",
+                    p=self.cfg.project,
+                ),
+                hint=t(
+                    "Proje adını (grup/proje ya da ID) ve token yetkisini kontrol edin.",
+                    "Check the project name (group/project or ID) and the token's permissions.",
+                ),
             )
         if isinstance(exc, gitlab.GitlabHttpError | gitlab.GitlabError):
-            return GitLabError(f"GitLab hatası: {exc}")
+            return GitLabError(t("GitLab hatası: {e}", "GitLab error: {e}", e=exc))
         return GitLabError(
-            f"GitLab'a ulaşılamıyor ({self.cfg.url}): {exc}",
-            hint="`gitlab.url` ve ağ bağlantısını kontrol edin.",
+            t(
+                "GitLab'a ulaşılamıyor ({u}): {e}",
+                "Cannot reach GitLab ({u}): {e}",
+                u=self.cfg.url,
+                e=exc,
+            ),
+            hint=t(
+                "Adresi ve ağ bağlantısını kontrol edin: gitex doctor",
+                "Check the address and network: gitex doctor",
+            ),
         )
 
     def iter_merge_requests(self, updated_after: str | None = None) -> Iterator[dict[str, Any]]:

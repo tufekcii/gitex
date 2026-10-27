@@ -152,7 +152,7 @@ def test_auth_error(
     with pytest.raises(GitLabError) as exc:
         sync_gitlab(_client(), indexed_db)
     assert exc.value.hint is not None
-    assert "GITEX_GITLAB_TOKEN" in exc.value.hint
+    assert "gitex auth login gitlab" in exc.value.hint
 
 
 # ---------------------------------------------------------------------- araçlar

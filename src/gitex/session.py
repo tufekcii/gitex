@@ -15,6 +15,7 @@ from gitex.agent.simple import run_simple
 from gitex.agent.tools import Toolbox
 from gitex.config import Config
 from gitex.git.reader import GitRepo
+from gitex.i18n import t
 from gitex.index.db import Database
 from gitex.index.indexer import ProgressFn, ensure_index
 from gitex.llm.base import LLMProvider, Message
@@ -24,14 +25,15 @@ Mode = Literal["agent", "simple"]
 
 
 def scope_note(path: str | None, since: date | None, until: date | None) -> str:
+    # Soruya eklenir; model cevabı sorunun dilinde verdiği için arayüz dilinde yazılır.
     parts = []
     if path:
-        parts.append(f"yalnızca `{path}` yolu")
+        parts.append(t("yalnızca `{p}` yolu", "only the `{p}` path", p=path))
     if since:
-        parts.append(f"{since.isoformat()} ve sonrası")
+        parts.append(t("{d} ve sonrası", "on or after {d}", d=since.isoformat()))
     if until:
-        parts.append(f"{until.isoformat()} ve öncesi")
-    return f"\n\n(Kapsam: {'; '.join(parts)}.)" if parts else ""
+        parts.append(t("{d} ve öncesi", "on or before {d}", d=until.isoformat()))
+    return t("\n\n(Kapsam: {x}.)", "\n\n(Scope: {x}.)", x="; ".join(parts)) if parts else ""
 
 
 @dataclass

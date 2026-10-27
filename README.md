@@ -163,20 +163,25 @@ also how you update after a `git pull`.
 **2. Answer a few questions** — the wizard starts automatically (or run `gitex setup` any time):
 
 ```text
-1. Hangi yapay zekâ servisini kullanacaksın?
+Dil / Language
+    1) Türkçe
+    2) English           — everything from here on is in the language you pick
+1. Which AI service do you want to use?
     1) Groq             — free tier, very fast
     2) Google Gemini    — free tier
     3) OpenRouter       — one key, many models; ':free' ones cost nothing
     4) Ollama           — runs on your machine, no key at all
     5) Claude           6) OpenAI           7) vLLM / any OpenAI-compatible server
-2. API anahtarı          pasted once, stored in your OS keychain — never in a file
-3. Model                 picked by number from the provider's live model list
-4. Çalışma modu          agent or simple
-5. GitLab (opsiyonel)    project detected from your git remote
-6. İndeks                built for the current repository
+2. API key              pasted once, stored in your OS keychain — never in a file
+3. Model                picked by number from the provider's live model list
+4. Mode                 agent or simple
+5. GitLab (optional)    project detected from your git remote
+6. Index                built for the current repository
 ```
 
 Every choice is a number. You type only your API key — and a name, if what you want isn't on the list.
+On Windows the installer can also be given the language up front: `.\install.cmd -Lang en`
+(`./install.sh --lang en` on macOS/Linux).
 
 **3. Ask**
 
@@ -248,24 +253,24 @@ gitex ask "..." --json                 # answer + verified sources, machine-read
 Global option: `-C, --repo PATH` targets a repository in another directory.
 
 > [!NOTE]
-> Answers follow the language of your question. The CLI's own labels and messages (tables, progress,
-> errors) are currently in Turkish.
+> **Two languages, your choice.** The installer asks for Turkish or English first; every message,
+> table, prompt and `--help` text then follows that choice. Change it any time with
+> `gitex config set ui.language en` (or `tr`). Answers always follow the language of your question.
 
 <details>
 <summary><b>Example: <code>gitex when</code> without any LLM</b></summary>
 
 ```text
 $ gitex when "debug_dump"
-                                         'debug_dump' geçmişi
-┌────────────┬─────────┬──────────────┬────────────────────┬─────────────────────────────────────┬────┐
-│ Tarih      │ SHA     │ Yazar        │ Ne oldu            │ Konu                                │ MR │
-├────────────┼─────────┼──────────────┼────────────────────┼─────────────────────────────────────┼────┤
-│ 2026-02-10 │ c9ea76b │ Mehmet Demir │ eklendi (+1/-0)    │ Geçici debug_dump fonksiyonu        │    │
-│            │         │              │                    │ eklendi                             │    │
-│ 2026-02-20 │ 7121f8f │ Mehmet Demir │ kaldırıldı (+0/-1) │ debug_dump kaldırıldı               │    │
-└────────────┴─────────┴──────────────┴────────────────────┴─────────────────────────────────────┴────┘
-İlk ortaya çıkış: c9ea76b 2026-02-10 Mehmet Demir — Geçici debug_dump fonksiyonu eklendi
-Son durum: 7121f8f 2026-02-20 ile kaldırıldı.
+                                       History of 'debug_dump'
+┌────────────┬─────────┬──────────────┬─────────────────┬──────────────────────────────────────┬────┐
+│ Date       │ SHA     │ Author       │ What happened   │ Subject                              │ MR │
+├────────────┼─────────┼──────────────┼─────────────────┼──────────────────────────────────────┼────┤
+│ 2026-02-10 │ c9ea76b │ Mehmet Demir │ added (+1/-0)   │ Geçici debug_dump fonksiyonu eklendi │    │
+│ 2026-02-20 │ 7121f8f │ Mehmet Demir │ removed (+0/-1) │ debug_dump kaldırıldı                │    │
+└────────────┴─────────┴──────────────┴─────────────────┴──────────────────────────────────────┴────┘
+First appeared: c9ea76b 2026-02-10 Mehmet Demir — Geçici debug_dump fonksiyonu eklendi
+Current state: removed in 7121f8f on 2026-02-20.
 ```
 
 </details>
@@ -362,6 +367,7 @@ gitex auth logout                # remove it from the keychain
 
 | Key | Default | Description |
 |---|---|---|
+| `ui.language` | system language | `tr` or `en` — the interface language (global only) |
 | `llm.provider` | `openai_compat` | `openai_compat` (vLLM, Ollama, OpenAI) or `anthropic` |
 | `llm.model` | `qwen2.5-7b-instruct` | Model name as the endpoint expects it |
 | `llm.base_url` | — | Server address; required for `openai_compat` |

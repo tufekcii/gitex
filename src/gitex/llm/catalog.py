@@ -10,13 +10,16 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from gitex.config import LLMConfig
+from gitex.i18n import t
 
 
 @dataclass(frozen=True)
 class ProviderPreset:
     key: str
-    label: str
-    note: str
+    label_tr: str
+    label_en: str
+    note_tr: str
+    note_en: str
     provider: Literal["openai_compat", "anthropic"]
     base_url: str | None
     mode: Literal["agent", "simple"]
@@ -25,40 +28,57 @@ class ProviderPreset:
     default_model: str | None = None
     base_url_editable: bool = False
 
+    @property
+    def label(self) -> str:
+        return t(self.label_tr, self.label_en)
+
+    @property
+    def note(self) -> str:
+        return t(self.note_tr, self.note_en)
+
 
 PRESETS: list[ProviderPreset] = [
     ProviderPreset(
-        "groq", "Groq", "ücretsiz katmanı var (limitli), çok hızlı",
+        "groq", "Groq", "Groq",
+        "ücretsiz katmanı var (limitli), çok hızlı", "free tier (rate-limited), very fast",
         "openai_compat", "https://api.groq.com/openai/v1", "agent", True,
         key_url="https://console.groq.com/keys",
     ),
     ProviderPreset(
-        "gemini", "Google Gemini", "ücretsiz katmanı var (limitli)",
+        "gemini", "Google Gemini", "Google Gemini",
+        "ücretsiz katmanı var (limitli)", "free tier (rate-limited)",
         "openai_compat", "https://generativelanguage.googleapis.com/v1beta/openai/", "agent", True,
         key_url="https://aistudio.google.com/apikey",
     ),
     ProviderPreset(
-        "openrouter", "OpenRouter", "tek anahtarla birçok model; adı ':free' ile bitenler ücretsiz",
+        "openrouter", "OpenRouter", "OpenRouter",
+        "tek anahtarla birçok model; adı ':free' ile bitenler ücretsiz",
+        "one key, many models; those ending in ':free' cost nothing",
         "openai_compat", "https://openrouter.ai/api/v1", "agent", True,
         key_url="https://openrouter.ai/keys",
     ),
     ProviderPreset(
-        "ollama", "Ollama", "kendi bilgisayarında çalışır, tamamen ücretsiz, anahtar gerekmez",
+        "ollama", "Ollama", "Ollama",
+        "kendi bilgisayarında çalışır, tamamen ücretsiz, anahtar gerekmez",
+        "runs on your own machine, completely free, no key needed",
         "openai_compat", "http://localhost:11434/v1", "simple", False,
         default_model="qwen2.5:7b", base_url_editable=True,
     ),
     ProviderPreset(
-        "anthropic", "Claude (Anthropic API)", "ücretli; en isabetli cevaplar",
+        "anthropic", "Claude (Anthropic API)", "Claude (Anthropic API)",
+        "ücretli; en isabetli cevaplar", "paid; the most accurate answers",
         "anthropic", None, "agent", True,
         key_url="https://console.anthropic.com/settings/keys", default_model="claude-opus-5-5",
     ),
     ProviderPreset(
-        "openai", "OpenAI", "ücretli",
+        "openai", "OpenAI", "OpenAI",
+        "ücretli", "paid",
         "openai_compat", "https://api.openai.com/v1", "agent", True,
         key_url="https://platform.openai.com/api-keys",
     ),
     ProviderPreset(
-        "custom", "vLLM ya da başka OpenAI uyumlu sunucu", "kendi sunucun",
+        "custom", "vLLM ya da başka OpenAI uyumlu sunucu", "vLLM or another OpenAI-compatible server",
+        "kendi sunucun", "your own server",
         "openai_compat", "http://localhost:8000/v1", "agent", False,
         base_url_editable=True,
     ),

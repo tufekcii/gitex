@@ -162,6 +162,9 @@ Windows'ta `install.cmd`'ye çift tıklamak da yeterli. Kurulumu tekrar çalış
 **2. Birkaç soruyu yanıtlayın** — sihirbaz kendiliğinden açılır (istediğiniz zaman `gitex setup`):
 
 ```text
+Dil / Language
+    1) Türkçe           — bundan sonraki her şey seçtiğiniz dilde
+    2) English
 1. Hangi yapay zekâ servisini kullanacaksın?
     1) Groq             — ücretsiz katmanı var, çok hızlı
     2) Google Gemini    — ücretsiz katmanı var
@@ -176,6 +179,7 @@ Windows'ta `install.cmd`'ye çift tıklamak da yeterli. Kurulumu tekrar çalış
 ```
 
 Her seçim numaralıdır. Yalnızca API anahtarınızı — ve istediğiniz şey listede yoksa adını — yazarsınız.
+Dil kurulumda baştan da verilebilir: `.\install.cmd -Lang tr` (macOS/Linux: `./install.sh --lang tr`).
 
 **3. Sorun**
 
@@ -245,6 +249,11 @@ gitex ask "..." --json                 # cevap + doğrulanmış kaynaklar, makin
 | `gitex init` | `.gitex/` oluşturur ve `.gitignore`'a ekler (`setup` bunu yapar) |
 
 Genel seçenek: `-C, --repo YOL` başka bir dizindeki depoyu hedefler.
+
+> [!NOTE]
+> **İki dil, seçim sizin.** Kurulum önce Türkçe mi İngilizce mi diye sorar; bütün mesajlar, tablolar,
+> sorular ve `--help` metinleri bu seçimi izler. İstediğiniz zaman değiştirin:
+> `gitex config set ui.language tr` (ya da `en`). Cevaplar her zaman sorunun dilinde gelir.
 
 <details>
 <summary><b>Örnek: LLM olmadan <code>gitex when</code></b></summary>
@@ -357,6 +366,7 @@ gitex auth logout                # kasadan sil
 
 | Ayar | Varsayılan | Açıklama |
 |---|---|---|
+| `ui.language` | sistem dili | `tr` ya da `en` — arayüz dili (yalnızca global) |
 | `llm.provider` | `openai_compat` | `openai_compat` (vLLM, Ollama, OpenAI) ya da `anthropic` |
 | `llm.model` | `qwen2.5-7b-instruct` | Uç noktanın beklediği model adı |
 | `llm.base_url` | — | Sunucu adresi; `openai_compat` için zorunlu |

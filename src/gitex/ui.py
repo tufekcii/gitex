@@ -11,6 +11,7 @@ from rich.console import Console
 from gitex.config import Config, load_config
 from gitex.errors import GitexError, NotAGitRepoError
 from gitex.git.reader import GitRepo
+from gitex.i18n import t
 
 console = Console()
 err_console = Console(stderr=True)
@@ -39,7 +40,7 @@ state = State()
 
 
 def fail(exc: GitexError) -> typer.Exit:
-    err_console.print(f"[bold red]Hata:[/] {exc}")
+    err_console.print(t("[bold red]Hata:[/] {e}", "[bold red]Error:[/] {e}", e=exc))
     if exc.hint:
-        err_console.print(f"[dim]İpucu: {exc.hint}[/]")
+        err_console.print(t("[dim]İpucu: {h}[/]", "[dim]Hint: {h}[/]", h=exc.hint))
     return typer.Exit(code=1)

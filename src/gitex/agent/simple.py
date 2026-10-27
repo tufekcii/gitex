@@ -28,6 +28,7 @@ from gitex.agent.loop import (
 from gitex.agent.prompts import EXTRACT_SYSTEM, SIMPLE_SYSTEM
 from gitex.agent.tools import Toolbox, _parse_date
 from gitex.git.pathmatch import has_glob
+from gitex.i18n import t
 from gitex.llm.base import LLMProvider, Message
 from gitex.textnorm import fold, tokens
 
@@ -325,5 +326,8 @@ def run_simple(
     on_event("llm_call", {"purpose": "cevap"})
     resp = provider.chat(messages)
     _add_usage(result.usage, resp.usage)
-    answer = resp.text.strip() or "Bir cevap üretilemedi (model boş yanıt döndü)."
+    answer = resp.text.strip() or t(
+        "Bir cevap üretilemedi (model boş yanıt döndü).",
+        "No answer could be produced (the model returned nothing).",
+    )
     return finalize(provider, toolbox, messages, answer, result, on_event)

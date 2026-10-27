@@ -7,6 +7,7 @@ from typing import Any
 
 from gitex.config import LLMConfig
 from gitex.errors import LLMError
+from gitex.i18n import t
 from gitex.llm.base import LLMResponse, Message, ToolCall, ToolSpec
 
 DEFAULT_MAX_TOKENS = 2048
@@ -99,23 +100,35 @@ class OpenAICompatProvider:
             resp = self.client.chat.completions.create(**kwargs)
         except openai.APIConnectionError as exc:
             raise LLMError(
-                f"LLM'e ulaşılamıyor ({self.cfg.base_url}).",
-                hint="Sunucunun (vLLM/Ollama) çalıştığını ve `llm.base_url` ayarını kontrol edin.",
+                t("LLM'e ulaşılamıyor ({u}).", "Cannot reach the LLM ({u}).", u=self.cfg.base_url),
+                hint=t(
+                    "Sunucunun çalıştığını ve adresi kontrol edin: gitex doctor",
+                    "Check that the server is running and the address is right: gitex doctor",
+                ),
             ) from exc
         except openai.AuthenticationError as exc:
             raise LLMError(
-                "LLM kimlik doğrulaması başarısız.",
-                hint=f"`{self.cfg.api_key_env}` ortam değişkenini kontrol edin.",
+                t(
+                    "LLM kimlik doğrulaması başarısız (API anahtarı geçersiz).",
+                    "LLM authentication failed (invalid API key).",
+                ),
+                hint=t("Anahtarı yenileyin: gitex auth login", "Update the key: gitex auth login"),
             ) from exc
         except openai.NotFoundError as exc:
             raise LLMError(
-                f"Model ya da uç nokta bulunamadı: {self.model}",
-                hint="`llm.model` ve `llm.base_url` ayarlarını kontrol edin.",
+                t(
+                    "Model ya da uç nokta bulunamadı: {m}",
+                    "Model or endpoint not found: {m}",
+                    m=self.model,
+                ),
+                hint=t("Modeli yeniden seçin: gitex setup", "Choose the model again: gitex setup"),
             ) from exc
         except openai.APIStatusError as exc:
-            raise LLMError(f"LLM hatası ({exc.status_code}): {exc.message}") from exc
+            raise LLMError(
+                t("LLM hatası ({c}): {m}", "LLM error ({c}): {m}", c=exc.status_code, m=exc.message)
+            ) from exc
         if not resp.choices:
-            raise LLMError("LLM boş yanıt döndü.")
+            raise LLMError(t("LLM boş yanıt döndü.", "The LLM returned an empty response."))
         choice = resp.choices[0]
         usage = {}
         if resp.usage is not None:

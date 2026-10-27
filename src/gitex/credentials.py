@@ -9,6 +9,7 @@ from __future__ import annotations
 from urllib.parse import urlparse
 
 from gitex.errors import GitexError
+from gitex.i18n import t
 
 SERVICE = "gitex"
 
@@ -55,9 +56,11 @@ def set_secret(name: str, value: str) -> None:
         keyring.set_password(SERVICE, name, value)
     except Exception as exc:
         raise GitexError(
-            f"Anahtar kasasına yazılamadı: {exc}",
-            hint="Bu sistemde anahtar kasası yoksa değeri ortam değişkeniyle verin "
-            "(bkz. `gitex auth status`).",
+            t("Anahtar kasasına yazılamadı: {e}", "Could not write to the keychain: {e}", e=exc),
+            hint=t(
+                "Bu sistemde anahtar kasası yoksa değeri ortam değişkeniyle verin (bkz. `gitex auth status`).",
+                "If this system has no keychain, provide the value via an environment variable (see `gitex auth status`).",
+            ),
         ) from exc
 
 
@@ -74,7 +77,13 @@ def delete_secret(name: str) -> bool:
     except GitexError:
         raise
     except Exception as exc:
-        raise GitexError(f"Anahtar kasasından silinemedi: {exc}") from exc
+        raise GitexError(
+            t(
+                "Anahtar kasasından silinemedi: {e}",
+                "Could not remove from the keychain: {e}",
+                e=exc,
+            )
+        ) from exc
     return True
 
 

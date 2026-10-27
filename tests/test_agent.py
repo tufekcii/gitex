@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from gitex.agent.citations import WARNING, extract_mrs, extract_shas
+from gitex.agent.citations import extract_mrs, extract_shas, warning_label
 from gitex.agent.loop import run_agent
 from gitex.agent.simple import rule_based_plan, run_simple
 from gitex.agent.tools import Toolbox
@@ -93,7 +93,7 @@ def test_fabricated_sha_marked_when_still_wrong(toolbox: Toolbox) -> None:
     )
     result, _ = run_agent("ne oldu?", provider, toolbox)
     assert "1234abc" in result.unverified
-    assert f"1234abc ({WARNING})" in result.answer
+    assert f"1234abc ({warning_label()})" in result.answer
     # GitLab yokken MR referansı da doğrulanamaz.
     assert "!42" in result.unverified
 

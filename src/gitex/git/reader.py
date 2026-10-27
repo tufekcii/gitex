@@ -24,6 +24,7 @@ from gitex.git.models import (
     Ref,
 )
 from gitex.git.pathmatch import has_glob, match_any, match_path
+from gitex.i18n import t
 
 _REC = "\x1e"
 _SEP = "\x1f"
@@ -101,8 +102,11 @@ class GitRepo:
             out = self._exec(start, ["rev-parse", "--show-toplevel"])
         except GitCommandError as exc:
             raise NotAGitRepoError(
-                f"'{start}' bir git deposu değil.",
-                hint="Bir git deposunun içinde çalıştırın ya da `--repo` ile yol verin.",
+                t("'{p}' bir git deposu değil.", "'{p}' is not a git repository.", p=start),
+                hint=t(
+                    "Bir git deposunun içinde çalıştırın ya da `-C <yol>` ile yol verin.",
+                    "Run it inside a git repository or pass a path with `-C <path>`.",
+                ),
             ) from exc
         self.root = Path(out.strip()).resolve()
 
@@ -128,11 +132,17 @@ class GitRepo:
             )
         except FileNotFoundError as exc:
             raise GitCommandError(
-                "`git` komutu bulunamadı.", hint="git'in kurulu ve PATH'te olduğundan emin olun."
+                t("`git` komutu bulunamadı.", "The `git` command was not found."),
+                hint=t(
+                    "git'in kurulu ve PATH'te olduğundan emin olun.",
+                    "Make sure git is installed and on your PATH.",
+                ),
             ) from exc
         if proc.returncode not in ok_codes:
             err = proc.stderr.decode("utf-8", "replace").strip()
-            raise GitCommandError(f"git {' '.join(args[:3])} başarısız: {err}")
+            raise GitCommandError(
+                t("git {c} başarısız: {e}", "git {c} failed: {e}", c=" ".join(args[:3]), e=err)
+            )
         return proc.stdout.decode("utf-8", "replace")
 
     def run(

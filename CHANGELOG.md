@@ -6,13 +6,16 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esaslıdır; sü
 ## [Yayınlanmadı]
 
 ### Eklendi
+- İki dilli arayüz (Türkçe / English): kurulum betiği ve `gitex setup` önce dili numaralı olarak
+  sorar; mesajlar, tablolar, sorular, hatalar ve `--help` metinleri seçilen dilde olur.
+  `gitex config set ui.language en|tr` ile değiştirilir; varsayılan işletim sisteminin dilidir.
+  `install.cmd -Lang en` / `install.sh --lang en` ile baştan verilebilir.
 - Tek komutla kurulum: `install.cmd` / `install.ps1` (Windows) ve `install.sh` (macOS/Linux) uv'yi,
   Python 3.12'yi ve `gitex` komutunu kurar, ardından kurulum sihirbazını açar; `--uninstall` ile kaldırır.
 - Dosya düzenlemeden yönetim: `gitex setup` (sihirbaz), `gitex config show/get/set/unset/list-keys/path`,
   `gitex auth login/logout/status`, `gitex doctor`.
 - API anahtarları ve GitLab token'ları işletim sisteminin anahtar kasasında saklanır; ortam
   değişkeni tanımlıysa önceliklidir.
-
 - Ücretsiz katmanı olan sağlayıcılar: Groq, Google Gemini, OpenRouter (Ollama'ya ek olarak).
 - `gitex setup` modelleri sağlayıcının güncel listesinden numaralı sunar (sohbet dışı modeller
   ayıklanır, ücretsizler başta, uzun listelerde arama); listelenemezse elle yazmaya düşer.
@@ -29,6 +32,7 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esaslıdır; sü
   uv'ye bırakılmadan doğrulanıyor.
 
 ### Değişti
+- `gitex when --json` çıktısındaki `kind` alanı dilden bağımsız kodlar oldu: `added` / `removed` / `changed`.
 - `gitex init` artık etkin ayar yazmaz; oluşturduğu dosya yalnızca açıklama içerir ve global
   ayarları gölgelemez.
 

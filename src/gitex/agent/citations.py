@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass, field
 
 from gitex.git.reader import GitRepo
+from gitex.i18n import t
 from gitex.index.search import FTSSearch
 
 # 7-40 hex karakter; en az bir rakam içermeli ("defaced", "facade" gibi kelimeleri dışlar).
@@ -13,7 +14,10 @@ _SHA_RE = re.compile(r"(?<![0-9a-zA-Z_/\-.])([0-9a-f]{7,40})(?![0-9a-zA-Z_\-])")
 _MR_RE = re.compile(r"(?<![\w&])!(\d{1,7})\b")
 _MR_URL_RE = re.compile(r"/-?/?merge_requests/(\d+)")
 
-WARNING = "⚠ doğrulanamadı"
+
+def warning_label() -> str:
+    """Doğrulanamayan referansın yanına eklenen uyarı (arayüz dilinde)."""
+    return t("⚠ doğrulanamadı", "⚠ unverified")
 
 
 @dataclass
@@ -84,9 +88,9 @@ def mark_unverified(text: str, report: CitationReport) -> str:
     for token in report.invalid_shas:
         text = re.sub(
             rf"(?<![0-9a-zA-Z_/\-.]){re.escape(token)}(?![0-9a-zA-Z_\-])",
-            f"{token} ({WARNING})",
+            f"{token} ({warning_label()})",
             text,
         )
     for iid in report.invalid_mrs:
-        text = re.sub(rf"(?<![\w&])!{iid}\b", f"!{iid} ({WARNING})", text)
+        text = re.sub(rf"(?<![\w&])!{iid}\b", f"!{iid} ({warning_label()})", text)
     return text
