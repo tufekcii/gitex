@@ -35,6 +35,7 @@ from gitex.config import (
 )
 from gitex.errors import ConfigError, GitexError
 from gitex.git.reader import GitRepo
+from gitex.llm.catalog import PRESETS, ProviderPreset, is_free, list_models, preset_for
 from gitex.ui import console, err_console, fail, state
 
 Scope = Literal["global", "repo"]
@@ -302,39 +303,11 @@ def _is_local(url: str | None) -> bool:
 
 # ---------------------------------------------------------------------- setup
 
+# Sihirbazda en fazla bu kadar model numaralı listelenir; fazlası için arama sorulur.
+MAX_LISTED_MODELS = 25
 
-@dataclass(frozen=True)
-class ProviderPreset:
-    label: str
-    provider: str
-    model: str
-    base_url: str | None
-    mode: str
-    needs_key: bool
-
-
-PRESETS: list[ProviderPreset] = [
-    ProviderPreset("Claude (Anthropic API)", "anthropic", "claude-opus-5-5", None, "agent", True),
-    ProviderPreset(
-        "Ollama (yerel, ücretsiz)",
-        "openai_compat",
-        "qwen2.5:7b",
-        "http://localhost:11434/v1",
-        "simple",
-        False,
-    ),
-    ProviderPreset(
-        "vLLM ya da OpenAI uyumlu başka bir sunucu",
-        "openai_compat",
-        "Qwen/Qwen2.5-7B-Instruct",
-        "http://localhost:8000/v1",
-        "agent",
-        False,
-    ),
-    ProviderPreset(
-        "OpenAI", "openai_compat", "gpt-4.1", "https://api.openai.com/v1", "agent", True
-    ),
-]
+# Testler ağa çıkmamak için bunu değiştirir.
+model_lister: Callable[[LLMConfig], list[str]] = list_models
 
 
 def parse_gitlab_remote(url: str) -> tuple[str, str] | None:
@@ -357,14 +330,25 @@ def _origin_remote(repo: GitRepo) -> str | None:
     return out.strip() or None
 
 
-def _choose(prompt: str, options: list[str], default: int = 1) -> int:
+def _choose(
+    prompt: str, options: list[str], default: int = 1, hints: list[str] | None = None
+) -> int:
+    """Numaralı seçim; 1'den başlayan sıra numarasını döner."""
     for i, opt in enumerate(options, 1):
-        console.print(f"  [bold cyan]{i}[/]) {opt}")
+        hint = hints[i - 1] if hints and i - 1 < len(hints) and hints[i - 1] else ""
+        marker = " [dim](önerilen)[/]" if i == default and len(options) > 1 else ""
+        console.print(
+            f"  [bold cyan]{i:>2}[/]) {opt}" + (f"  [dim]— {hint}[/]" if hint else "") + marker
+        )
     while True:
-        raw = typer.prompt(prompt, default=str(default))
+        raw = typer.prompt(prompt, default=str(default)).strip()
         if raw.isdigit() and 1 <= int(raw) <= len(options):
             return int(raw)
         console.print(f"[yellow]1 ile {len(options)} arasında bir sayı girin.[/]")
+
+
+def _yes_no(prompt: str, *, default: bool) -> bool:
+    return _choose(prompt, ["Evet", "Hayır"], 1 if default else 2) == 1
 
 
 def setup(
@@ -376,7 +360,9 @@ def setup(
     except GitexError as exc:
         raise fail(exc) from exc
     except (typer.Abort, KeyboardInterrupt) as exc:
-        err_console.print("\n[dim]Kurulum iptal edildi; yapılan değişiklikler kaydedildi.[/]")
+        err_console.print(
+            "\n[dim]Kurulum iptal edildi; o ana kadar yapılan seçimler kaydedildi.[/]"
+        )
         raise typer.Exit(code=1) from exc
 
 
@@ -387,22 +373,36 @@ def _run_setup(*, skip_check: bool) -> None:
         f"[bold]gitex {__version__} kurulumu[/]  [dim](istediğin zaman tekrar çalıştırabilirsin)[/]\n"
     )
 
-    console.print("[bold]1. Hangi modeli kullanacaksın?[/]")
-    preset = PRESETS[_choose("Seçim", [p.label for p in PRESETS]) - 1]
-    model = typer.prompt("Model adı", default=preset.model).strip()
-    base_url = preset.base_url
-    if preset.provider == "openai_compat":
-        base_url = typer.prompt("Sunucu adresi (base_url)", default=preset.base_url or "").strip()
-    mode = preset.mode
-    console.print(
-        "\n[dim]agent: model araçları kendisi çağırır (güçlü modeller) · "
-        "simple: sabit arama + tek çağrı (küçük modeller)[/]"
+    # 1. Sağlayıcı
+    console.print("[bold]1. Hangi yapay zekâ servisini kullanacaksın?[/]")
+    current = preset_for(state.config(repo).llm)
+    default = PRESETS.index(current) + 1 if current else 1
+    preset = PRESETS[
+        _choose("Seçim", [p.label for p in PRESETS], default, hints=[p.note for p in PRESETS]) - 1
+    ]
+    base_url = _pick_base_url(preset)
+    llm = LLMConfig(provider=preset.provider, base_url=base_url)
+
+    # 2. Anahtar (model listesini çekebilmek için modelden önce)
+    console.print("\n[bold]2. API anahtarı[/]")
+    _ask_api_key(preset, llm, base_url)
+
+    # 3. Model
+    console.print("\n[bold]3. Model[/]")
+    model = _pick_model(preset, llm)
+
+    # 4. Mod
+    console.print("\n[bold]4. Çalışma modu[/]")
+    mode_idx = _choose(
+        "Seçim",
+        ["agent", "simple"],
+        1 if preset.mode == "agent" else 2,
+        hints=[
+            "model araçları kendisi çağırır; güçlü modeller için",
+            "sabit arama + tek çağrı; küçük/ücretsiz modellerde daha isabetli",
+        ],
     )
-    mode = (
-        "agent"
-        if _choose("Mod", ["agent", "simple"], 1 if preset.mode == "agent" else 2) == 1
-        else "simple"
-    )
+    mode = "agent" if mode_idx == 1 else "simple"
 
     set_value(global_path, "llm.provider", preset.provider)
     set_value(global_path, "llm.model", model)
@@ -411,35 +411,9 @@ def _run_setup(*, skip_check: bool) -> None:
     else:
         unset_value(global_path, "llm.base_url")
     set_value(global_path, "llm.mode", mode)
-    console.print(f"[green]✓[/] Model ayarları kaydedildi [dim]({global_path}, tüm depolar)[/]\n")
-
-    llm = LLMConfig(provider=preset.provider, model=model, base_url=base_url or None, mode=mode)  # type: ignore[arg-type]
-    console.print("[bold]2. API anahtarı[/]")
-    existing = llm.api_key() or (
-        _env("ANTHROPIC_API_KEY") if preset.provider == "anthropic" else None
+    console.print(
+        f"[green]✓[/] {preset.label} / {model} ({mode}) kaydedildi [dim]({global_path}, tüm depolar)[/]\n"
     )
-    if not preset.needs_key and _is_local(base_url):
-        console.print("[dim]Yerel sunucu için anahtar gerekmiyor.[/]\n")
-    elif existing and not typer.confirm(
-        f"Kayıtlı bir anahtar var ({credentials.mask(existing)}). Değiştirilsin mi?", default=False
-    ):
-        console.print("[dim]Mevcut anahtar kullanılacak.[/]\n")
-    else:
-        value = typer.prompt(
-            "API anahtarı (yazdıkların görünmez; boş = atla)",
-            default="",
-            hide_input=True,
-            show_default=False,
-        ).strip()
-        if value:
-            credentials.set_secret(llm.key_name, value)
-            console.print(
-                f"[green]✓[/] Anahtar işletim sisteminin anahtar kasasına kaydedildi ({credentials.mask(value)})\n"
-            )
-        else:
-            console.print(
-                f"[yellow]Atlandı.[/] Sonra: [bold]gitex auth login[/] ya da {llm.api_key_env} ortam değişkeni\n"
-            )
 
     if repo is None:
         console.print(
@@ -447,51 +421,175 @@ def _run_setup(*, skip_check: bool) -> None:
         )
     else:
         _setup_gitlab(repo)
-        console.print("[bold]4. İndeks[/]")
-        from gitex.cli import run_index
+        console.print("[bold]6. İndeks[/]")
+        from gitex.cli import ensure_gitignore, run_index
         from gitex.index.indexer import open_index
 
         with open_index(repo) as db:
             run_index(repo, db)
-        from gitex.cli import ensure_gitignore
-
         ensure_gitignore(repo)
         console.print()
 
-    if not skip_check and typer.confirm("Bağlantı test edilsin mi?", default=True):
-        doctor(offline=False)
+    if not skip_check and _yes_no("Bağlantı test edilsin mi?", default=True):
+        try:
+            doctor(offline=False)
+        except typer.Exit:
+            console.print(
+                "[yellow]Sorunları düzelttikten sonra `gitex doctor` ile tekrar kontrol edebilirsin.[/]"
+            )
     console.print('\n[bold green]Hazır![/] Dene: [bold]gitex ask "Son değişiklikler neler?"[/]')
+
+
+def _pick_base_url(preset: ProviderPreset) -> str | None:
+    if not preset.base_url_editable:
+        return preset.base_url
+    choice = _choose(
+        "Sunucu adresi",
+        [preset.base_url or "", "Başka bir adres"],
+        1,
+        hints=["varsayılan", "ör. başka bir makinedeki sunucu"],
+    )
+    if choice == 1:
+        return preset.base_url
+    return (
+        typer.prompt("Adres (ör. http://192.168.1.10:11434/v1)").strip().rstrip("/")
+        or preset.base_url
+    )
+
+
+def _ask_api_key(preset: ProviderPreset, llm: LLMConfig, base_url: str | None) -> None:
+    if not preset.needs_key and _is_local(base_url):
+        console.print("[dim]Yerel sunucu için anahtar gerekmiyor.[/]")
+        return
+    existing = llm.api_key() or (
+        _env("ANTHROPIC_API_KEY") if preset.provider == "anthropic" else None
+    )
+    if existing and (
+        _choose(
+            "Seçim",
+            [f"Kayıtlı anahtarı kullan ({credentials.mask(existing)})", "Yeni anahtar gir"],
+            1,
+        )
+        == 1
+    ):
+        return
+    if preset.key_url:
+        console.print(f"Anahtar almak için: [link={preset.key_url}]{preset.key_url}[/link]")
+    value = typer.prompt(
+        "API anahtarını yapıştır (görünmez; boş bırakırsan atlanır)",
+        default="",
+        hide_input=True,
+        show_default=False,
+    ).strip()
+    if value:
+        credentials.set_secret(llm.key_name, value)
+        console.print(
+            f"[green]✓[/] Anahtar işletim sisteminin anahtar kasasına kaydedildi ({credentials.mask(value)})"
+        )
+    else:
+        console.print(
+            f"[yellow]Atlandı.[/] Sonra: [bold]gitex auth login[/] ya da {llm.api_key_env} ortam değişkeni"
+        )
+
+
+def _pick_model(preset: ProviderPreset, llm: LLMConfig) -> str:
+    with console.status("Model listesi alınıyor…"):
+        try:
+            ids = model_lister(llm)
+            error = None
+        except Exception as exc:
+            ids, error = [], _short_error(exc)
+    if not ids:
+        if error:
+            console.print(f"[yellow]Model listesi alınamadı:[/] {error}")
+        if preset.key == "ollama":
+            console.print("[dim]Ollama'da yüklü model yoksa önce: ollama pull qwen2.5:7b[/]")
+        if preset.default_model:
+            return str(typer.prompt("Model adı", default=preset.default_model)).strip()
+        return str(typer.prompt("Model adı")).strip()
+
+    shown = ids
+    if len(ids) > MAX_LISTED_MODELS:
+        query = (
+            typer.prompt(
+                f"{len(ids)} model var. Aramak için bir kelime yaz (boş = ilk {MAX_LISTED_MODELS})",
+                default="",
+                show_default=False,
+            )
+            .strip()
+            .lower()
+        )
+        if query:
+            matches = [m for m in ids if query in m.lower()]
+            if matches:
+                shown = matches
+            else:
+                console.print(
+                    f"[yellow]'{query}' ile eşleşen model yok; ilk {MAX_LISTED_MODELS} gösteriliyor.[/]"
+                )
+    shown = shown[:MAX_LISTED_MODELS]
+    manual = "Listede yok — adını elle yazacağım"
+    default = shown.index(preset.default_model) + 1 if preset.default_model in shown else 1
+    hints = ["ücretsiz" if is_free(m) else "" for m in shown]
+    choice = _choose("Seçim", [*shown, manual], default, hints=hints)
+    if choice == len(shown) + 1:
+        return str(typer.prompt("Model adı")).strip()
+    return shown[choice - 1]
 
 
 def _setup_gitlab(repo: GitRepo) -> None:
     console.print(
-        "[bold]3. GitLab (opsiyonel)[/] [dim]— MR'lar, review yorumları ve issue'lar için[/]"
+        "[bold]5. GitLab (opsiyonel)[/] [dim]— MR'lar, review yorumları ve issue'lar için[/]"
     )
     remote = _origin_remote(repo)
     detected = parse_gitlab_remote(remote) if remote else None
-    default_yes = bool(detected and "gitlab" in detected[0])
-    if not typer.confirm("GitLab bağlansın mı?", default=default_yes):
+    looks_gitlab = bool(detected and "gitlab" in detected[0])
+    if not _yes_no("GitLab bağlansın mı?", default=looks_gitlab):
         console.print()
         return
+
+    url_options: list[str] = []
+    url_hints: list[str] = []
+    if detected:
+        url_options.append(detected[0])
+        url_hints.append("git remote'tan algılandı")
+    if "https://gitlab.com" not in url_options:
+        url_options.append("https://gitlab.com")
+        url_hints.append("")
+    url_options.append("Başka bir adres")
+    url_hints.append("ör. şirket içi GitLab")
+    idx = _choose("GitLab adresi", url_options, 1, hints=url_hints)
     url = (
-        typer.prompt("GitLab adresi", default=detected[0] if detected else "https://gitlab.com")
-        .strip()
-        .rstrip("/")
+        typer.prompt("Adres (ör. https://gitlab.sirket.com)").strip().rstrip("/")
+        if idx == len(url_options)
+        else url_options[idx - 1]
     )
-    project = typer.prompt(
-        "Proje (grup/proje ya da ID)", default=detected[1] if detected else None
-    ).strip()
+
+    if detected and detected[0] == url:
+        pidx = _choose(
+            "Proje", [detected[1], "Başka bir proje"], 1, hints=["git remote'tan algılandı", ""]
+        )
+        project = detected[1] if pidx == 1 else typer.prompt("Proje (grup/proje ya da ID)").strip()
+    else:
+        project = typer.prompt("Proje (grup/proje ya da ID)").strip()
+
     repo_cfg = config_path("repo", repo.root)
     set_value(repo_cfg, "gitlab.url", url)
     set_value(repo_cfg, "gitlab.project", project)
     console.print(f"[green]✓[/] GitLab ayarları kaydedildi [dim]({repo_cfg}, bu depo)[/]")
+    console.print(
+        f"Token almak için: {url}/-/user_settings/personal_access_tokens  [dim](read_api yetkisi yeter)[/]"
+    )
     token = typer.prompt(
-        "Token (read_api; görünmez; boş = atla)", default="", hide_input=True, show_default=False
+        "Token'ı yapıştır (görünmez; boş bırakırsan atlanır)",
+        default="",
+        hide_input=True,
+        show_default=False,
     ).strip()
     if token:
         credentials.set_secret(credentials.gitlab_key_name(url), token)
         console.print("[green]✓[/] Token anahtar kasasına kaydedildi")
-    if typer.confirm("MR'lar şimdi senkronlansın mı?", default=bool(token)):
+    if _yes_no("MR'lar şimdi senkronlansın mı?", default=bool(token)):
         from gitex.cli import sync as sync_cmd
 
         try:

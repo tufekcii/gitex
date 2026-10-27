@@ -48,8 +48,8 @@ gitex bu araçların önüne bir LLM koyar ve onu dürüst tutar:
   `!MR` linkleri.
 - **Uydurmaz.** Cevaptaki her SHA ve MR indekse karşı doğrulanır. Uydurma bir referans bir kez
   düzeltilmek üzere modele geri gönderilir; yine düzelmezse `⚠ doğrulanamadı` olarak işaretlenir.
-- **Kodunuzun çalıştığı yerde çalışır.** vLLM ya da Ollama ile yerel modeller veya Anthropic API
-  üzerinden Claude. Geçmiş diskte indekslenir; diff'ler asla saklanmaz.
+- **Elinizde ne varsa onunla çalışır.** Ücretsiz bulut katmanları (Groq, Google Gemini, OpenRouter),
+  yerel modeller (Ollama, vLLM) ya da Claude ve OpenAI. Geçmiş diskte indekslenir; diff'ler asla saklanmaz.
 
 <a id="ozellikler"></a>
 
@@ -162,11 +162,20 @@ Windows'ta `install.cmd`'ye çift tıklamak da yeterli. Kurulumu tekrar çalış
 **2. Birkaç soruyu yanıtlayın** — sihirbaz kendiliğinden açılır (istediğiniz zaman `gitex setup`):
 
 ```text
-1. Hangi modeli kullanacaksın?           Claude · Ollama · vLLM · OpenAI
-2. API anahtarı                          işletim sisteminin anahtar kasasına, asla dosyaya değil
-3. GitLab (opsiyonel)                    proje git remote'undan algılanır
-4. İndeks                                bulunduğunuz depo için kurulur
+1. Hangi yapay zekâ servisini kullanacaksın?
+    1) Groq             — ücretsiz katmanı var, çok hızlı
+    2) Google Gemini    — ücretsiz katmanı var
+    3) OpenRouter       — tek anahtarla birçok model; ':free' olanlar ücretsiz
+    4) Ollama           — kendi bilgisayarında çalışır, anahtar gerekmez
+    5) Claude           6) OpenAI           7) vLLM / başka OpenAI uyumlu sunucu
+2. API anahtarı          bir kez yapıştırılır, anahtar kasasına kaydedilir — asla dosyaya değil
+3. Model                 sağlayıcının güncel model listesinden numarayla seçilir
+4. Çalışma modu          agent ya da simple
+5. GitLab (opsiyonel)    proje git remote'undan algılanır
+6. İndeks                bulunduğunuz depo için kurulur
 ```
+
+Her seçim numaralıdır. Yalnızca API anahtarınızı — ve istediğiniz şey listede yoksa adını — yazarsınız.
 
 **3. Sorun**
 
@@ -378,9 +387,31 @@ Ayarlar TOML olarak `~/.config/gitex/config.toml` ve `<repo>/.gitex/config.toml`
 
 ### Model sağlayıcıları
 
-`gitex setup` bunların hepsini etkileşimli olarak kurar. Komutla karşılıkları:
+`gitex setup` bunların hepsini numaralı seçimlerle kurar ve sağlayıcının modellerini listeler. Komutla karşılıkları:
 
 <details open>
+<summary><b>Ücretsiz seçenekler</b> — Groq, Google Gemini, OpenRouter, Ollama</summary>
+
+| Sağlayıcı | Ücretsiz | Anahtar al | `llm.base_url` |
+|---|---|---|---|
+| Groq | ücretsiz katman (limitli) | [console.groq.com/keys](https://console.groq.com/keys) | `https://api.groq.com/openai/v1` |
+| Google Gemini | ücretsiz katman (limitli) | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | `https://generativelanguage.googleapis.com/v1beta/openai/` |
+| OpenRouter | adı `:free` ile biten modeller | [openrouter.ai/keys](https://openrouter.ai/keys) | `https://openrouter.ai/api/v1` |
+| Ollama | tamamen ücretsiz, yerel | anahtar gerekmez | `http://localhost:11434/v1` |
+
+```bash
+gitex config set llm.provider openai_compat
+gitex config set llm.base_url https://api.groq.com/openai/v1
+gitex config set llm.model <listeden-model>
+gitex auth login
+```
+
+Ücretsiz katmanları ve limitlerini her sağlayıcı kendisi belirler ve değişebilir. Ücretsiz bir model
+araç çağırmada zorlanırsa: `gitex config set llm.mode simple`.
+
+</details>
+
+<details>
 <summary><b>Claude (Anthropic API)</b></summary>
 
 ```bash

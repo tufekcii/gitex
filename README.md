@@ -49,8 +49,8 @@ gitex puts an LLM in front of those tools and keeps it honest:
 - **It does not make things up.** Every SHA and MR in the answer is verified against the index. A
   fabricated reference is sent back to the model for correction once, and flagged
   `⚠ doğrulanamadı` (unverified) if it survives.
-- **It runs where your code runs.** Local models through vLLM or Ollama, or Claude through the
-  Anthropic API. Your history is indexed on disk; diffs are never stored.
+- **It runs on whatever you have.** Free cloud tiers (Groq, Google Gemini, OpenRouter), local models
+  (Ollama, vLLM), or Claude and OpenAI. Your history is indexed on disk; diffs are never stored.
 
 <a id="features"></a>
 
@@ -163,11 +163,20 @@ also how you update after a `git pull`.
 **2. Answer a few questions** — the wizard starts automatically (or run `gitex setup` any time):
 
 ```text
-1. Hangi modeli kullanacaksın?           Claude · Ollama · vLLM · OpenAI
-2. API anahtarı                          stored in your OS keychain, never in a file
-3. GitLab (opsiyonel)                    project detected from your git remote
-4. İndeks                                built for the current repository
+1. Hangi yapay zekâ servisini kullanacaksın?
+    1) Groq             — free tier, very fast
+    2) Google Gemini    — free tier
+    3) OpenRouter       — one key, many models; ':free' ones cost nothing
+    4) Ollama           — runs on your machine, no key at all
+    5) Claude           6) OpenAI           7) vLLM / any OpenAI-compatible server
+2. API anahtarı          pasted once, stored in your OS keychain — never in a file
+3. Model                 picked by number from the provider's live model list
+4. Çalışma modu          agent or simple
+5. GitLab (opsiyonel)    project detected from your git remote
+6. İndeks                built for the current repository
 ```
+
+Every choice is a number. You type only your API key — and a name, if what you want isn't on the list.
 
 **3. Ask**
 
@@ -383,9 +392,31 @@ Settings are stored as TOML in `~/.config/gitex/config.toml` and `<repo>/.gitex/
 
 ### Model providers
 
-`gitex setup` covers all of these interactively. The equivalent commands:
+`gitex setup` covers all of these with numbered choices and lists each provider's models for you. The equivalent commands:
 
 <details open>
+<summary><b>Free options</b> — Groq, Google Gemini, OpenRouter, Ollama</summary>
+
+| Provider | Free | Get a key | `llm.base_url` |
+|---|---|---|---|
+| Groq | free tier (rate-limited) | [console.groq.com/keys](https://console.groq.com/keys) | `https://api.groq.com/openai/v1` |
+| Google Gemini | free tier (rate-limited) | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | `https://generativelanguage.googleapis.com/v1beta/openai/` |
+| OpenRouter | models ending in `:free` | [openrouter.ai/keys](https://openrouter.ai/keys) | `https://openrouter.ai/api/v1` |
+| Ollama | fully free, local | no key | `http://localhost:11434/v1` |
+
+```bash
+gitex config set llm.provider openai_compat
+gitex config set llm.base_url https://api.groq.com/openai/v1
+gitex config set llm.model <model-from-the-list>
+gitex auth login
+```
+
+Free tiers and their limits are set by each provider and can change. If a free model handles tool
+calling poorly, switch to `gitex config set llm.mode simple`.
+
+</details>
+
+<details>
 <summary><b>Claude (Anthropic API)</b></summary>
 
 ```bash

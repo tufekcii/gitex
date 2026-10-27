@@ -11,8 +11,9 @@ from typer.testing import CliRunner
 
 import gitex.manage as manage
 from gitex.cli import app
-from gitex.config import load_config, user_config_path
+from gitex.config import LLMConfig, load_config, user_config_path
 from gitex.evals.fixture import FixtureRepo
+from gitex.llm.catalog import PRESETS, clean_models, preset_for
 from tests.conftest import MemoryKeyring
 
 runner = CliRunner()
@@ -161,19 +162,40 @@ def test_keys_are_per_endpoint(fixture_repo: FixtureRepo, memory_keyring: Memory
 
 # ---------------------------------------------------------------------- setup
 
+# Sihirbazdaki sağlayıcı numaraları (PRESETS sırası).
+GROQ, GEMINI, OPENROUTER, OLLAMA, CLAUDE, OPENAI, CUSTOM = (str(i) for i in range(1, 8))
 
-def test_setup_claude_wizard(fixture_repo: FixtureRepo, memory_keyring: MemoryKeyring) -> None:
-    secret = "sk-ant-" + "y" * 30
-    answers = "\n".join(
-        [
-            "1",  # Claude
-            "",  # model: varsayılan
-            "1",  # agent
-            secret,  # anahtar
-            "n",  # GitLab yok
-        ]
+
+def _answers(*lines: str) -> str:
+    return "\n".join(lines) + "\n"
+
+
+def _fake_lister(models: list[str], seen: list[LLMConfig] | None = None):
+    def lister(llm: LLMConfig) -> list[str]:
+        if seen is not None:
+            seen.append(llm)
+        return list(models)
+
+    return lister
+
+
+def test_setup_claude_wizard(
+    fixture_repo: FixtureRepo, memory_keyring: MemoryKeyring, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        manage,
+        "model_lister",
+        _fake_lister(["claude-haiku-5-5", "claude-opus-5-5", "claude-sonnet-5-5"]),
     )
-    r = _run(fixture_repo.path, "setup", "--no-check", input=answers + "\n")
+    secret = "sk-ant-" + "y" * 30
+    answers = _answers(
+        CLAUDE,
+        secret,  # anahtar
+        "",  # model: önerilen (claude-opus-5-5)
+        "",  # mod: önerilen (agent)
+        "",  # GitLab: önerilen (Hayır; remote yok)
+    )
+    r = _run(fixture_repo.path, "setup", "--no-check", input=answers)
     assert r.exit_code == 0, r.output
     cfg = load_config(fixture_repo.path)
     assert (cfg.llm.provider, cfg.llm.model, cfg.llm.mode) == (
@@ -186,40 +208,155 @@ def test_setup_claude_wizard(fixture_repo: FixtureRepo, memory_keyring: MemoryKe
     assert (fixture_repo.path / ".gitex" / "index.db").exists()
     assert ".gitex/" in (fixture_repo.path / ".gitignore").read_text(encoding="utf-8")
     assert secret not in _all_text_under(user_config_path(), fixture_repo.path / ".gitex")
+    assert "1) Evet" in r.output  # evet/hayır soruları da numaralı
     assert "Hazır" in r.output
 
 
+def test_setup_groq_lists_models_after_key(
+    fixture_repo: FixtureRepo, memory_keyring: MemoryKeyring, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: list[LLMConfig] = []
+    models = ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "qwen-qwq-32b"]
+    monkeypatch.setattr(manage, "model_lister", _fake_lister(models, seen))
+    r = _run(
+        fixture_repo.path,
+        "setup",
+        "--no-check",
+        input=_answers(GROQ, "gsk_" + "z" * 20, "2", "", ""),
+    )
+    assert r.exit_code == 0, r.output
+    assert "https://console.groq.com/keys" in r.output
+    for i, m in enumerate(models, 1):
+        assert f"{i}) {m}" in r.output
+    cfg = load_config(fixture_repo.path)
+    assert cfg.llm.base_url == "https://api.groq.com/openai/v1"
+    assert cfg.llm.model == "llama-3.3-70b-versatile"
+    # Model listesi, az önce girilen anahtarla çekildi.
+    assert seen[0].api_key() == "gsk_" + "z" * 20
+    assert ("gitex", "llm:openai_compat@api.groq.com") in memory_keyring.store
+
+
+def test_setup_model_list_failure_falls_back_to_manual(
+    fixture_repo: FixtureRepo, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def broken(llm: LLMConfig) -> list[str]:
+        raise ConnectionError("401 Invalid API Key")
+
+    monkeypatch.setattr(manage, "model_lister", broken)
+    r = _run(
+        fixture_repo.path,
+        "setup",
+        "--no-check",
+        input=_answers(GEMINI, "", "gemini-elle", "", ""),
+    )
+    assert r.exit_code == 0, r.output
+    assert "Model listesi alınamadı" in r.output
+    assert "401 Invalid API Key" in r.output
+    assert load_config(fixture_repo.path).llm.model == "gemini-elle"
+
+
+def test_setup_many_models_search_and_manual(
+    fixture_repo: FixtureRepo, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    models = [f"vendor/model-{i}b" for i in range(40)] + ["meta/llama-70b:free"]
+    monkeypatch.setattr(manage, "model_lister", _fake_lister(models))
+    r = _run(
+        fixture_repo.path,
+        "setup",
+        "--no-check",
+        input=_answers(OPENROUTER, "or-key", "70b", "1", "", ""),
+    )
+    assert r.exit_code == 0, r.output
+    assert "41 model var" in r.output
+    assert load_config(fixture_repo.path).llm.model == "meta/llama-70b:free"
+
+    # "Listede yok" seçeneği elle yazmaya geçer; kayıtlı anahtar tekrar sorulmaz.
+    r = _run(
+        fixture_repo.path,
+        "setup",
+        "--no-check",
+        input=_answers(
+            OPENROUTER,
+            "",
+            "",
+            str(min(len(models), manage.MAX_LISTED_MODELS) + 1),
+            "ozel/model",
+            "",
+            "",
+        ),
+    )
+    assert r.exit_code == 0, r.output
+    assert "Kayıtlı anahtarı kullan" in r.output
+    assert load_config(fixture_repo.path).llm.model == "ozel/model"
+
+
 def test_setup_ollama_with_gitlab_detected_from_remote(
-    fixture_repo: FixtureRepo, memory_keyring: MemoryKeyring
+    fixture_repo: FixtureRepo, memory_keyring: MemoryKeyring, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import subprocess
 
+    monkeypatch.setattr(manage, "model_lister", _fake_lister(["llama3.2", "qwen2.5:7b"]))
     subprocess.run(
         ["git", "remote", "add", "origin", "git@gitlab.example.com:ekip/servis.git"],
         cwd=fixture_repo.path,
         check=True,
     )
-    answers = "\n".join(
-        [
-            "2",  # Ollama
-            "",  # model varsayılan
-            "",  # base_url varsayılan
-            "",  # mod: varsayılan (simple)
-            "",  # GitLab bağlansın mı: remote gitlab olduğu için varsayılan evet
-            "",  # adres: remote'tan
-            "",  # proje: remote'tan
-            "",  # token atla
-            "n",  # senkron yok
-        ]
+    answers = _answers(
+        OLLAMA,
+        "",  # adres: varsayılan
+        "",  # model: önerilen (qwen2.5:7b)
+        "",  # mod: önerilen (simple)
+        "",  # GitLab bağlansın mı: remote gitlab → önerilen Evet
+        "",  # adres: remote'tan
+        "",  # proje: remote'tan
+        "",  # token atla
+        "",  # senkron: önerilen Hayır (token yok)
     )
-    r = _run(fixture_repo.path, "setup", "--no-check", input=answers + "\n")
+    r = _run(fixture_repo.path, "setup", "--no-check", input=answers)
     assert r.exit_code == 0, r.output
     cfg = load_config(fixture_repo.path)
     assert cfg.llm.base_url == "http://localhost:11434/v1"
+    assert cfg.llm.model == "qwen2.5:7b"
     assert cfg.llm.mode == "simple"
     assert cfg.gitlab.url == "https://gitlab.example.com"
     assert cfg.gitlab.project == "ekip/servis"
     assert memory_keyring.store == {}
+    assert "anahtar gerekmiyor" in r.output
+
+
+def test_choose_rejects_out_of_range(
+    fixture_repo: FixtureRepo, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(manage, "model_lister", _fake_lister(["m1"]))
+    r = _run(
+        fixture_repo.path,
+        "setup",
+        "--no-check",
+        input=_answers("99", "abc", OLLAMA, "", "", "", ""),
+    )
+    assert r.exit_code == 0, r.output
+    assert "1 ile 7 arasında" in r.output
+    assert load_config(fixture_repo.path).llm.model == "m1"
+
+
+def test_clean_models() -> None:
+    raw = [
+        "models/gemini-2.5-flash",
+        "text-embedding-3-small",
+        "whisper-large-v3",
+        "b-model",
+        "a-model:free",
+        "meta-llama/llama-guard-4-12b",
+        "b-model",
+    ]
+    assert clean_models(raw) == ["a-model:free", "b-model", "gemini-2.5-flash"]
+
+
+def test_preset_for_matches_current_config() -> None:
+    groq = next(p for p in PRESETS if p.key == "groq")
+    assert preset_for(LLMConfig(provider="openai_compat", base_url=groq.base_url)) is groq
+    assert preset_for(LLMConfig(provider="anthropic")).key == "anthropic"  # type: ignore[union-attr]
+    assert preset_for(LLMConfig(provider="openai_compat", base_url="http://x:1/v1")) is None
 
 
 @pytest.mark.parametrize(
@@ -279,3 +416,26 @@ def test_missing_setup_hint_on_ask(fixture_repo: FixtureRepo) -> None:
 def test_no_secret_env_leaks_into_process() -> None:
     # Testler gerçek anahtarlara erişmemeli (conftest izolasyonu).
     assert "ANTHROPIC_API_KEY" not in os.environ
+
+
+def test_list_models_uses_provider_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+
+    import openai
+
+    from gitex.llm.catalog import list_models
+
+    created: dict[str, object] = {}
+
+    class FakeOpenAI:
+        def __init__(self, **kwargs: object) -> None:
+            created.update(kwargs)
+            ids = ["whisper-large-v3", "llama-3.3-70b-versatile"]
+            self.models = SimpleNamespace(list=lambda: [SimpleNamespace(id=i) for i in ids])
+
+    monkeypatch.setattr(openai, "OpenAI", FakeOpenAI)
+    monkeypatch.setenv("GITEX_LLM_API_KEY", "gsk-test")
+    llm = LLMConfig(provider="openai_compat", base_url="https://api.groq.com/openai/v1")
+    assert list_models(llm) == ["llama-3.3-70b-versatile"]
+    assert created["base_url"] == "https://api.groq.com/openai/v1"
+    assert created["api_key"] == "gsk-test"

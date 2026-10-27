@@ -13,6 +13,11 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esaslıdır; sü
 - API anahtarları ve GitLab token'ları işletim sisteminin anahtar kasasında saklanır; ortam
   değişkeni tanımlıysa önceliklidir.
 
+- Ücretsiz katmanı olan sağlayıcılar: Groq, Google Gemini, OpenRouter (Ollama'ya ek olarak).
+- `gitex setup` modelleri sağlayıcının güncel listesinden numaralı sunar (sohbet dışı modeller
+  ayıklanır, ücretsizler başta, uzun listelerde arama); listelenemezse elle yazmaya düşer.
+  Evet/hayır dahil tüm seçimler numaralı; anahtar alma adresleri sihirbazda gösterilir.
+
 ### Düzeltildi
 - Windows kurulumu, uv'nin stderr'e yazdığı "zaten PATH'te" bilgisinde yarıda kesiliyordu
   (PowerShell 5.1 bunu hataya çeviriyordu); sihirbaz hiç açılmıyordu.
