@@ -9,6 +9,8 @@ dependencies = [
     "typer>=0.12",
     "rich>=13.7",
     "pydantic>=2.7",
+    "openai>=3.39.0",
+    "anthropic>=2.3.0",
 ]
 
 [project.optional-dependencies]
@@ -39,6 +41,7 @@ src = ["src", "tests"]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "C4", "PT"]
 ignore = [
     "B008",    # typer.Option() varsayılan argümanlarda kullanılır
+    "E501",    # satır uzunluğunu `ruff format` yönetir; kalanlar bölünemeyen metinler
     "RUF001", "RUF002", "RUF003",  # Türkçe metinlerdeki ı, ş vb. karakterler
 ]
 

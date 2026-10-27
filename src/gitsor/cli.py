@@ -2,20 +2,34 @@
 
 from __future__ import annotations
 
+import json
 import sys
+from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
+from typing import Any
 
 import typer
 from rich.console import Console
+from rich.markdown import Markdown
+from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 
 from gitsor import __version__
+from gitsor.agent.loop import AgentResult, EventFn
 from gitsor.config import SAMPLE_CONFIG, Config, index_path, load_config, repo_dir
 from gitsor.errors import GitsorError
+from gitsor.git.models import Commit
 from gitsor.git.reader import GitRepo
 from gitsor.index.db import Database
 from gitsor.index.indexer import index_repo, is_stale, open_index
+from gitsor.index.search import FTSSearch
+from gitsor.llm.base import LLMProvider, LLMResponse, Message, ToolSpec
+from gitsor.llm.factory import make_provider
+from gitsor.session import Session
 
 app = typer.Typer(
     name="gitsor",
@@ -180,6 +194,369 @@ def status() -> None:
     else:
         table.add_row("GitLab", "ayarlanmamış (yalnızca yerel git)")
     table.add_row("Config", ", ".join(cfg.sources) or "varsayılanlar")
+    console.print(table)
+
+
+# ---------------------------------------------------------------------- soru-cevap
+
+
+class ContextPrinter:
+    """`--show-context`: LLM'e gidecek mesajları göndermeden önce ekrana basar."""
+
+    def __init__(self, inner: LLMProvider, out: Console) -> None:
+        self.inner = inner
+        self.name = inner.name
+        self.model = inner.model
+        self.out = out
+        self._shown: set[int] = set()
+
+    def chat(self, messages: list[Message], tools: list[ToolSpec] | None = None) -> LLMResponse:
+        for m in messages:
+            if id(m) in self._shown:
+                continue
+            self._shown.add(id(m))
+            title = m.role + (f" ({m.name})" if m.name else "")
+            body = m.content
+            if m.tool_calls:
+                body += "\n" + "\n".join(
+                    f"→ {tc.name}({json.dumps(tc.arguments, ensure_ascii=False)})"
+                    for tc in m.tool_calls
+                )
+            self.out.print(
+                Panel(Text(body or "(boş)"), title=title, title_align="left", border_style="dim")
+            )
+        if tools:
+            self.out.print(f"[dim]araçlar: {', '.join(t.name for t in tools)}[/]")
+        return self.inner.chat(messages, tools)
+
+
+def _make_provider(cfg: Config) -> LLMProvider:
+    return make_provider(cfg.llm)
+
+
+# Testler sahte sağlayıcı enjekte etmek için bunu değiştirir.
+provider_factory: Callable[[Config], LLMProvider] = _make_provider
+
+
+def _event_printer(quiet: bool) -> EventFn:
+    def on_event(kind: str, data: dict[str, Any]) -> None:
+        if quiet:
+            return
+        if kind == "tool_call":
+            args = ", ".join(f"{k}={v!r}" for k, v in data["arguments"].items())
+            err_console.print(f"[dim]  → {data['name']}({args})[/]", highlight=False)
+        elif kind == "tool_result" and not data["ok"]:
+            err_console.print(f"[yellow]    ✗ {data['name']} hata döndü[/]")
+        elif kind == "plan":
+            err_console.print(
+                f"[dim]  plan: kelimeler={data['keywords']} kod={data['code_terms']} yol={data['path']}[/]",
+                highlight=False,
+            )
+        elif kind == "citation_retry":
+            refs = data["shas"] + [f"!{m}" for m in data["mrs"]]
+            err_console.print(
+                f"[yellow]  ⚠ doğrulanamayan referans ({', '.join(refs)}); düzeltme isteniyor[/]"
+            )
+
+    return on_event
+
+
+def _open_session(*, show_context: bool, quiet: bool) -> Session:
+    repo = state.repo()
+    cfg = state.config(repo)
+    if repo.head() is None and not repo.all_commit_shas():
+        raise GitsorError("Depo boş: henüz hiç commit yok.")
+
+    def progress(done: int, total: int) -> None:
+        if not quiet and done == total:
+            err_console.print(f"[dim]İndeks güncellendi: {total} yeni commit[/]")
+
+    session = Session.open(repo, cfg, provider_factory=provider_factory, progress=progress)
+    if show_context:
+        session.provider = ContextPrinter(session.provider, err_console)
+    return session
+
+
+def _print_result(result: AgentResult, *, as_json: bool) -> None:
+    if as_json:
+        typer.echo(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
+        return
+    console.print(Markdown(result.answer))
+    if result.unverified:
+        err_console.print(
+            f"[yellow]⚠ Doğrulanamayan referanslar: {', '.join(result.unverified)}[/]"
+        )
+    else:
+        err_console.print(
+            f"[dim]✓ {len(result.sources)} kaynak doğrulandı ({result.mode}, {result.model})[/]"
+        )
+
+
+def _parse_cli_date(value: str | None, name: str) -> date | None:
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise GitsorError(
+            f"--{name} için geçersiz tarih: {value}", hint="Biçim: YYYY-AA-GG"
+        ) from exc
+
+
+def _answer(
+    question: str,
+    *,
+    mode: str | None,
+    path: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+    show_context: bool = False,
+    as_json: bool = False,
+    quiet: bool = False,
+) -> None:
+    if mode not in (None, "agent", "simple"):
+        raise GitsorError(f"Geçersiz mod: {mode}", hint="agent ya da simple")
+    since_d, until_d = _parse_cli_date(since, "since"), _parse_cli_date(until, "until")
+    session = _open_session(show_context=show_context, quiet=quiet or as_json)
+    try:
+        result = session.ask(
+            question,
+            mode=mode,  # type: ignore[arg-type]
+            path=path,
+            since=since_d,
+            until=until_d,
+            on_event=_event_printer(quiet or as_json),
+        )
+    finally:
+        session.close()
+    _print_result(result, as_json=as_json)
+
+
+_MODE_OPT = typer.Option(None, "--mode", "-m", help="agent (tool-use) ya da simple.")
+_SHOW_OPT = typer.Option(
+    False, "--show-context", help="LLM'e gönderilen bağlamı göndermeden önce bas."
+)
+_JSON_OPT = typer.Option(False, "--json", help="Makine-okunur çıktı (cevap + kaynaklar).")
+_QUIET_OPT = typer.Option(False, "--quiet", "-q", help="Araç çağrılarını gösterme.")
+
+
+@app.command()
+def ask(
+    question: str = typer.Argument(..., help="Doğal dilde soru."),
+    path: str | None = typer.Option(None, "--path", "-p", help="Aramayı bir yola daralt."),
+    since: str | None = typer.Option(None, "--since", help="Başlangıç tarihi (YYYY-AA-GG)."),
+    until: str | None = typer.Option(None, "--until", help="Bitiş tarihi (YYYY-AA-GG)."),
+    mode: str | None = _MODE_OPT,
+    show_context: bool = _SHOW_OPT,
+    as_json: bool = _JSON_OPT,
+    quiet: bool = _QUIET_OPT,
+) -> None:
+    """Repo geçmişi hakkında soru sor (ne, ne zaman, kim, neden)."""
+    try:
+        _answer(
+            question,
+            mode=mode,
+            path=path,
+            since=since,
+            until=until,
+            show_context=show_context,
+            as_json=as_json,
+            quiet=quiet,
+        )
+    except GitsorError as exc:
+        raise _fail(exc) from exc
+
+
+@app.command()
+def explain(
+    target: str = typer.Argument(..., help="Commit SHA'sı ya da !MR numarası."),
+    mode: str | None = _MODE_OPT,
+    show_context: bool = _SHOW_OPT,
+    as_json: bool = _JSON_OPT,
+    quiet: bool = _QUIET_OPT,
+) -> None:
+    """Bir commit'i ya da MR'ı açıklar."""
+    try:
+        repo = state.repo()
+        if target.startswith("!"):
+            iid = target[1:]
+            if not iid.isdigit():
+                raise GitsorError(f"Geçersiz MR numarası: {target}")
+            if not state.config(repo).gitlab.enabled:
+                raise GitsorError(
+                    "MR açıklamak için GitLab ayarlanmalı.",
+                    hint="`.gitsor/config.toml` içinde [gitlab] project ayarlayıp `gitsor sync` çalıştırın.",
+                )
+            question = (
+                f"!{iid} numaralı merge request'i açıkla: ne değiştirdi, neden yapıldı, kim yaptı, "
+                "hangi commit'leri içeriyor ve review'da ne tartışıldı?"
+            )
+        else:
+            sha = repo.resolve(target)
+            if sha is None:
+                raise GitsorError(f"Commit bulunamadı: {target}")
+            question = (
+                f"{sha[:12]} commit'ini açıkla: ne yaptı, neden yapıldı, kim ne zaman yaptı, "
+                "hangi MR ile geldi ve review'da ne tartışıldı?"
+            )
+        _answer(question, mode=mode, show_context=show_context, as_json=as_json, quiet=quiet)
+    except GitsorError as exc:
+        raise _fail(exc) from exc
+
+
+@app.command()
+def when(
+    expression: str = typer.Argument(..., help="Kodda aranacak ifade."),
+    path: str | None = typer.Option(None, "--path", "-p", help="Yola daralt."),
+    regex: bool = typer.Option(
+        False, "--regex", "-E", help="İfadeyi regex olarak ara (git log -G)."
+    ),
+    limit: int = typer.Option(30, "--limit", "-n", min=1, max=500),
+    as_json: bool = _JSON_OPT,
+) -> None:
+    """Bir ifadenin kodda ne zaman eklendiğini/kaldırıldığını gösterir (pickaxe, LLM gerekmez)."""
+    try:
+        repo = state.repo()
+        hits = repo.pickaxe(expression, regex=regex, path=path, limit=limit)
+        mr_map: dict[str, list[str]] = {}
+        cfg = state.config(repo)
+        if cfg.gitlab.enabled and index_path(repo.root).exists():
+            with Database(index_path(repo.root)) as db:
+                search = FTSSearch(db)
+                for h in hits:
+                    mr_map[h.commit.sha] = [
+                        f"!{m.iid}" for m in search.mrs_for_commit(h.commit.sha)
+                    ]
+    except GitsorError as exc:
+        raise _fail(exc) from exc
+    if as_json:
+        payload = [
+            {
+                "sha": h.commit.sha,
+                "date": h.commit.author_date.date().isoformat(),
+                "author": h.commit.author_name,
+                "subject": h.commit.subject,
+                "kind": h.kind,
+                "added": h.added,
+                "removed": h.removed,
+                "mrs": mr_map.get(h.commit.sha, []),
+            }
+            for h in hits
+        ]
+        typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+    if not hits:
+        console.print(f"'{expression}' için ekleme/kaldırma yapan commit bulunamadı.")
+        raise typer.Exit(code=0)
+    table = Table(title=f"'{expression}' geçmişi", show_lines=False)
+    for col in ("Tarih", "SHA", "Yazar", "Ne oldu", "Konu", "MR"):
+        table.add_column(col)
+    for h in reversed(hits):
+        c = h.commit
+        table.add_row(
+            c.author_date.date().isoformat(),
+            c.short_sha,
+            c.author_name,
+            f"{h.kind} (+{h.added}/-{h.removed})",
+            c.subject,
+            ", ".join(mr_map.get(c.sha, [])),
+        )
+    console.print(table)
+    first = hits[-1].commit
+    console.print(
+        f"İlk ortaya çıkış: [bold]{first.short_sha}[/] {first.author_date.date()} {first.author_name} — {first.subject}"
+    )
+    last = hits[0]
+    if last.kind == "kaldırıldı":
+        console.print(
+            f"Son durum: [bold]{last.commit.short_sha}[/] {last.commit.author_date.date()} ile kaldırıldı."
+        )
+
+
+@app.command("file")
+def file_cmd(
+    path: str = typer.Argument(..., help="Dosya yolu."),
+    llm: bool = typer.Option(False, "--llm", help="Ek olarak LLM ile anlatımlı özet üret."),
+    mode: str | None = _MODE_OPT,
+    as_json: bool = _JSON_OPT,
+) -> None:
+    """Bir dosyanın özet evrimi: kimler, ne zaman, ne sıklıkla, yeniden adlandırmalar."""
+    try:
+        repo = state.repo()
+        commits = repo.file_history(path)
+        if not commits:
+            raise GitsorError(
+                f"'{path}' için geçmiş bulunamadı.",
+                hint="Yolu repo köküne göre verin; `gitsor ask` ile list_paths kullanılabilir.",
+            )
+        summary = summarize_file(path, commits)
+        if as_json and not llm:
+            typer.echo(json.dumps(summary, ensure_ascii=False, indent=2))
+            return
+        if not as_json:
+            _print_file_summary(summary)
+        if llm:
+            _answer(
+                f"`{path}` dosyasının evrimini özetle: hangi önemli değişiklikler oldu, kimler yaptı, "
+                "neden bu kadar değişti?",
+                mode=mode,
+                path=path,
+                as_json=as_json,
+            )
+    except GitsorError as exc:
+        raise _fail(exc) from exc
+
+
+def summarize_file(path: str, commits: list[Commit]) -> dict[str, Any]:
+    authors = Counter(c.author_name for c in commits)
+    added = sum((f.additions or 0) for c in commits for f in c.files[:1])
+    deleted = sum((f.deletions or 0) for c in commits for f in c.files[:1])
+    renames = [
+        {"sha": c.sha, "date": c.author_date.date().isoformat(), "from": f.old_path, "to": f.path}
+        for c in commits
+        for f in c.files[:1]
+        if f.status == "R"
+    ]
+    months = Counter(c.author_date.strftime("%Y-%m") for c in commits)
+    return {
+        "path": path,
+        "commits": len(commits),
+        "first": {"sha": commits[-1].sha, "date": commits[-1].author_date.date().isoformat(),
+                  "author": commits[-1].author_name, "subject": commits[-1].subject},
+        "last": {"sha": commits[0].sha, "date": commits[0].author_date.date().isoformat(),
+                 "author": commits[0].author_name, "subject": commits[0].subject},
+        "authors": dict(authors.most_common()),
+        "lines_added": added,
+        "lines_deleted": deleted,
+        "renames": renames,
+        "by_month": dict(sorted(months.items())),
+        "recent": [
+            {"sha": c.sha, "date": c.author_date.date().isoformat(), "author": c.author_name,
+             "subject": c.subject}
+            for c in commits[:10]
+        ],
+    }  # fmt: skip
+
+
+def _print_file_summary(s: dict[str, Any]) -> None:
+    console.print(
+        f"[bold]{s['path']}[/] — {s['commits']} commit, +{s['lines_added']}/-{s['lines_deleted']} satır"
+    )
+    f, last = s["first"], s["last"]
+    console.print(f"İlk: {f['sha'][:7]} {f['date']} {f['author']} — {f['subject']}")
+    console.print(f"Son: {last['sha'][:7]} {last['date']} {last['author']} — {last['subject']}")
+    console.print("Yazarlar: " + ", ".join(f"{a} ({n})" for a, n in s["authors"].items()))
+    for r in s["renames"]:
+        console.print(f"Yeniden adlandırma: {r['from']} → {r['to']} ({r['sha'][:7]}, {r['date']})")
+    peak = max(s["by_month"].values())
+    console.print("Aylık aktivite:")
+    for month, n in s["by_month"].items():
+        console.print(f"  {month} {'█' * max(1, round(20 * n / peak))} {n}")
+    table = Table(title="Son değişiklikler", show_header=True)
+    for col in ("Tarih", "SHA", "Yazar", "Konu"):
+        table.add_column(col)
+    for c in s["recent"]:
+        table.add_row(c["date"], c["sha"][:7], c["author"], c["subject"])
     console.print(table)
 
 

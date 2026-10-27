@@ -28,14 +28,20 @@ class _Section(BaseModel):
 class LLMConfig(_Section):
     provider: Literal["openai_compat", "anthropic"] = "openai_compat"
     model: str = "qwen2.5-7b-instruct"
-    base_url: str | None = "http://localhost:8000/v1"
+    base_url: str | None = None
     api_key_env: str = "GITSOR_LLM_API_KEY"
     mode: Literal["agent", "simple"] = "agent"
     max_tool_calls: int = Field(default=12, ge=1, le=100)
+    # Yalnızca openai_compat'a gönderilir; güncel Claude API örnekleme parametrelerini kabul etmez.
     temperature: float = Field(default=0.1, ge=0.0, le=2.0)
-    max_tokens: int = Field(default=2048, ge=64)
+    max_tokens: int | None = Field(default=None, ge=64)  # None: sağlayıcı varsayılanı
     timeout: float = Field(default=120.0, gt=0)
-    context_chars: int = Field(default=60000, ge=2000)
+    # Bir araç çıktısının ve simple moddaki toplam bağlamın karakter bütçesi.
+    tool_output_chars: int = Field(default=8000, ge=500)
+    context_chars: int = Field(default=40000, ge=2000)
+    simple_top_n: int = Field(default=6, ge=1, le=30)
+    # Claude reddederse sunucu tarafı yedek modele devret (yalnızca doğrudan Claude API'de).
+    anthropic_fallbacks: bool = True
 
     def api_key(self) -> str | None:
         return os.environ.get(self.api_key_env) or None
