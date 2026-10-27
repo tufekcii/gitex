@@ -23,3 +23,9 @@ Her satır: tarih — karar — gerekçe.
 - 2026-10-27 — Kaynak doğrulama: SHA = 7-40 hex ve en az bir rakam ("defaced" gibi kelimeleri dışlar). GitLab yoksa her MR referansı doğrulanamaz sayılır.
 - 2026-10-27 — `when` ve `file` LLM gerektirmeyen deterministik çıktılar üretir (`file --llm` ile anlatım eklenir); `ask/explain` ortak `Session` katmanını kullanır.
 - 2026-10-27 — Simple modda LLM parametre çıkarımı yalnızca kurallar kod terimi/yol/SHA/MR bulamazsa yapılır (en fazla bir ek çağrı).
+- 2026-10-27 — Bağımlılık: `python-gitlab` — spec gereği; sayfalama ve 429 (`Retry-After`) geri çekilmesini kendisi yönetir, `gitlab.max_retries` ile sınırlanır.
+- 2026-10-27 — Test bağımlılığı: `responses` — python-gitlab'ın `requests` çağrılarını ağa çıkmadan mock'lar.
+- 2026-10-27 — MR'lar `state=all` ile çekilir; yalnızca `merged`/`opened` saklanır, kapatılan (merge edilmemiş) MR'lar artımlı senkronda indeksten silinir.
+- 2026-10-27 — Senkron imleci (`gitlab_last_sync`) istek başlamadan alınan zamandır; senkron sırasında güncellenenler bir sonraki turda tekrar gelir (idempotent yazım).
+- 2026-10-27 — `gitlab.project` değişirse GitLab verisi sıfırdan senkronlanır.
+- 2026-10-27 — SHA→MR eşlemesi: MR commit listesi + `merge_commit_sha` + `squash_commit_sha`. Rebase ile merge edilen MR'larda main'deki SHA'lar MR listesindekilerden farklı olabilir; bu durumda eşleme yalnızca merge/squash commit'i üzerinden yapılabilir (bilinen sınırlama).

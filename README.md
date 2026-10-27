@@ -25,6 +25,11 @@ gitsor file payment/service.py     # dosyanın evrim özeti (LLM gerekmez; --llm
 `ask` hangi araçların çağrıldığını gösterir (`--quiet` ile kapanır); `--show-context` LLM'e
 gidecek bağlamı göndermeden önce ekrana basar.
 
+GitLab (opsiyonel): `.gitsor/config.toml` içinde `[gitlab] project = "grup/proje"` ayarlayıp
+`read_api` yetkili token'ı ortam değişkeniyle verin; sonra `gitsor sync` MR'ları, review
+yorumlarını ve bağlı issue'ları indeksler (artımlı; `--full` ile sıfırdan). GitLab ayarlı değilse
+araç yalnızca yerel git ile tam çalışır.
+
 İndeks repo başına `.gitsor/index.db` (SQLite + FTS5) dosyasındadır. Diff içerikleri indekse
 yazılmaz; ihtiyaç anında git'ten okunur.
 

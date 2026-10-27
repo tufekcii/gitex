@@ -162,3 +162,30 @@ def test_llm_unreachable_message(fixture_repo: FixtureRepo, monkeypatch) -> None
     result = runner.invoke(app, ["-C", str(fixture_repo.path), "ask", "x?"])
     assert result.exit_code == 1
     assert "ulaşılamıyor" in result.output
+
+
+def test_sync_command(fixture_repo: FixtureRepo, monkeypatch) -> None:
+    import responses
+
+    from tests.gitlab_mock import BASE, PROJECT, GitLabMock, scenario
+
+    cfg_dir = fixture_repo.path / ".gitsor"
+    cfg_dir.mkdir()
+    (cfg_dir / "config.toml").write_text(
+        f'[gitlab]\nurl = "{BASE}"\nproject = "{PROJECT}"\n', encoding="utf-8"
+    )
+    monkeypatch.setenv("GITSOR_GITLAB_TOKEN", "dummy")
+    with responses.RequestsMock(assert_all_requests_are_fired=False) as rsps:
+        GitLabMock(scenario(fixture_repo)).install(rsps)
+        result = runner.invoke(app, ["-C", str(fixture_repo.path), "sync"])
+    assert result.exit_code == 0, result.output
+    assert "3 MR" in result.output
+    status = runner.invoke(app, ["-C", str(fixture_repo.path), "status"])
+    assert "3 / 2" in status.output  # MR / issue
+    assert "grup/proje" in status.output
+
+
+def test_sync_without_gitlab(fixture_repo: FixtureRepo) -> None:
+    result = runner.invoke(app, ["-C", str(fixture_repo.path), "sync"])
+    assert result.exit_code == 1
+    assert "GitLab ayarlanmamış" in result.output

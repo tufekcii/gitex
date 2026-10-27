@@ -20,10 +20,19 @@ from rich.text import Text
 
 from gitsor import __version__
 from gitsor.agent.loop import AgentResult, EventFn
-from gitsor.config import SAMPLE_CONFIG, Config, index_path, load_config, repo_dir
+from gitsor.config import (
+    GITLAB_TOKEN_ENV,
+    SAMPLE_CONFIG,
+    Config,
+    index_path,
+    load_config,
+    repo_dir,
+)
 from gitsor.errors import GitsorError
 from gitsor.git.models import Commit
 from gitsor.git.reader import GitRepo
+from gitsor.gitlab.client import GitLabClient
+from gitsor.gitlab.sync import sync_gitlab
 from gitsor.index.db import Database
 from gitsor.index.indexer import index_repo, is_stale, open_index
 from gitsor.index.search import FTSSearch
@@ -150,6 +159,51 @@ def index(
             run_index(repo, db, quiet=quiet)
     except GitsorError as exc:
         raise _fail(exc) from exc
+
+
+# ---------------------------------------------------------------------- sync
+
+
+def make_gitlab_client(cfg: Config) -> GitLabClient:
+    return GitLabClient(cfg.gitlab, cfg.gitlab.token())
+
+
+@app.command()
+def sync(
+    full: bool = typer.Option(False, "--full", help="İmleci yok say, tüm MR'ları yeniden çek."),
+    quiet: bool = typer.Option(False, "--quiet", "-q", help="İlerleme gösterme."),
+) -> None:
+    """GitLab MR / yorum / issue senkronizasyonu (gerekirse önce yerel indeksi günceller)."""
+    try:
+        repo = state.repo()
+        cfg = state.config(repo)
+        if not cfg.gitlab.enabled:
+            raise GitsorError(
+                "GitLab ayarlanmamış.",
+                hint='`.gitsor/config.toml` içinde [gitlab] project = "grup/proje" ayarlayın.',
+            )
+        if not cfg.gitlab.token():
+            err_console.print(
+                f"[yellow]Uyarı:[/] {GITLAB_TOKEN_ENV} tanımlı değil; yalnızca herkese açık projeler okunabilir."
+            )
+        with open_index(repo) as db:
+            if is_stale(repo, db):
+                run_index(repo, db, quiet=quiet)
+            client = make_gitlab_client(cfg)
+
+            def _progress(n: int) -> None:
+                if not quiet and n % 50 == 0:
+                    err_console.print(f"[dim]  {n} MR senkronlandı…[/]")
+
+            stats = sync_gitlab(client, db, full=full, progress=_progress)
+    except GitsorError as exc:
+        raise _fail(exc) from exc
+    if not quiet:
+        kind = "tam" if stats.full else "artımlı"
+        err_console.print(
+            f"[green]GitLab senkronu ({kind}):[/] {stats.synced} MR güncellendi, {stats.removed} kaldırıldı, "
+            f"{stats.notes} yorum, {stats.issues} issue bağı ({stats.elapsed:.1f} sn)"
+        )
 
 
 # ---------------------------------------------------------------------- status
