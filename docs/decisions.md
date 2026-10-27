@@ -33,3 +33,4 @@ Her satır: tarih — karar — gerekçe.
 - 2026-10-27 — Değerlendirme setinde beklenen commit'ler fixture adım adlarıyla yazılır ve çalışma anında SHA'ya çözülür (fixture deterministik; test bunu doğrular). Git'in varsayılan nesne formatı değişse bile set geçerli kalır.
 - 2026-10-27 — Değerlendirme yalnızca yerel git verisiyle çalışır; GitLab senaryoları `responses` (dev bağımlılığı) gerektirdiği için testlerde kalır.
 - 2026-10-27 — `Session.open` önce LLM sağlayıcısını kurar, sonra indeksi açar: config hatası indeks dosyasını açık bırakmaz (Windows'ta dosya kilidi).
+- 2026-10-27 — Ana README İngilizce (uluslararası okuyucu), Türkçe karşılığı README.tr.md; iki dosya aynı yapıyı korur. Başlık bağlantıları GitHub/GitLab farkı için açık `<a id>` çapalarıyla verilir. Demo görseli fixture deposuna göre temsilîdir (gerçek bir model koşusundan alınmadı) ve README bunu belirtir.

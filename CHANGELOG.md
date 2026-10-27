@@ -6,6 +6,8 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esaslıdır; sü
 ## [Yayınlanmadı]
 
 ### Eklendi
+- İngilizce README (uluslararası okuyucu için) ve Türkçe `README.tr.md`; logo (açık/koyu tema),
+  demo görseli, mimari diyagramı. `LICENSE` (MIT) dosyası.
 - `gitex chat`: takip sorularında bağlamı koruyan etkileşimli oturum (`/yeni`, `/mod`, `/json`,
   `/çık`); büyüyen geçmiş, eski turları budamak yerine özetle yeni konuşma açılarak sıkıştırılır.
 - Hata mesajları: git deposu değil, boş depo, GitLab token'ı yok / yetkisiz, proje bulunamadı,
