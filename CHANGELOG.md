@@ -19,6 +19,9 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esaslıdır; sü
   Evet/hayır dahil tüm seçimler numaralı; anahtar alma adresleri sihirbazda gösterilir.
 
 ### Düzeltildi
+- Açık bir gitex (ör. yarıda kalmış `gitex setup`) varken Windows güncellemesi "Erişim engellendi"
+  ile başarısız olup eski sürüm çalışmaya devam ediyordu; kurulum artık bunu tespit edip numaralı
+  seçenek sunuyor (kapat ve devam et / vazgeç). Kaynak değişince uv derlemeyi yeniliyor (`cache-keys`).
 - Windows kurulumu, uv'nin stderr'e yazdığı "zaten PATH'te" bilgisinde yarıda kesiliyordu
   (PowerShell 5.1 bunu hataya çeviriyordu); sihirbaz hiç açılmıyordu.
 - Kurulumu başlatan terminal yeni PATH'i göremediği için `gitex` tanınmıyordu; kurulum artık bunu

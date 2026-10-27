@@ -79,9 +79,35 @@ if (-not $uv) {
 }
 Ok "uv: $(& $uv --version)"
 
+# Windows çalışan programın dosyalarının değiştirilmesine izin vermez: açık bir gitex (ör. yarıda
+# kalmış bir `gitex setup`) varken güncelleme "Erişim engellendi" ile başarısız olur.
+$running = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+    $_.Name -eq 'gitex.exe' -or ($_.ExecutablePath -and $_.ExecutablePath -like '*\uv\tools\gitex\*')
+})
+if ($running.Count -gt 0) {
+    Write-Host ''
+    Write-Host '  Açık bir gitex var (ör. yarıda kalmış bir "gitex setup" penceresi).' -ForegroundColor Yellow
+    Write-Host '  Açıkken güncelleme yapılamaz:' -ForegroundColor Yellow
+    $running | Where-Object { $_.Name -eq 'gitex.exe' } | ForEach-Object {
+        Write-Host "    PID $($_.ProcessId): $($_.CommandLine)" -ForegroundColor DarkGray
+    }
+    if ([Console]::IsInputRedirected) {
+        Fail 'Açık gitex pencerelerini kapatın (Ctrl+C) ve kurulumu tekrar çalıştırın.'
+    }
+    Write-Host '   1) Kapat ve kuruluma devam et  (önerilen)'
+    Write-Host '   2) Vazgeç, kendim kapatacağım'
+    $answer = Read-Host 'Seçim [1]'
+    if ($answer.Trim() -eq '2') { Fail 'Kurulum iptal edildi.' 'gitex pencerelerini kapatıp tekrar çalıştırın.' }
+    $running | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+    Start-Sleep -Milliseconds 700
+    Ok 'Açık gitex kapatıldı.'
+}
+
 Step 'Python 3.12 ve gitex kuruluyor (ilk seferde birkaç dakika sürebilir)'
 & $uv tool install --force --python 3.12 $Root
-if ($LASTEXITCODE -ne 0) { Fail 'gitex kurulamadı.' 'Yukarıdaki hatayı kontrol edin; bu betiği tekrar çalıştırmak güvenlidir.' }
+if ($LASTEXITCODE -ne 0) {
+    Fail 'gitex kurulamadı.' 'Hata "Erişim engellendi" ise açık bir gitex penceresi vardır: kapatıp tekrar çalıştırın. Bu betiği tekrar çalıştırmak güvenlidir.'
+}
 
 $binDir = (& $uv tool dir --bin 2>$null | Select-Object -First 1).Trim()
 if (-not $NoModifyPath) {
