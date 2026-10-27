@@ -25,8 +25,12 @@ param(
     [switch]$Uninstall
 )
 
-$ErrorActionPreference = 'Stop'
+# 'Stop' kullanılmaz: Windows PowerShell 5.1, yerel programların (uv, git) stderr'e yazdığı
+# zararsız uyarıları bile betiği durduran hataya çevirir. Hatalar $LASTEXITCODE ile denetlenir.
+$ErrorActionPreference = 'Continue'
 $Root = $PSScriptRoot
+# Bu betiği başlatan terminalin PATH'i (alt süreç onu değiştiremez; sonda uyarmak için).
+$CallerPath = $env:Path
 
 function Step([string]$Message) { Write-Host "==> $Message" -ForegroundColor Cyan }
 function Ok([string]$Message) { Write-Host "    $Message" -ForegroundColor Green }
@@ -66,7 +70,7 @@ if (-not $uv) {
     Step 'uv kuruluyor (Python ve paket yöneticisi, astral.sh)'
     if ($NoModifyPath) { $env:UV_NO_MODIFY_PATH = '1' }
     try {
-        Invoke-RestMethod -Uri 'https://astral.sh/uv/install.ps1' | Invoke-Expression
+        Invoke-RestMethod -Uri 'https://astral.sh/uv/install.ps1' -ErrorAction Stop | Invoke-Expression
     } catch {
         Fail "uv indirilemedi: $($_.Exception.Message)" 'İnternet bağlantısını kontrol edin ya da uv''yi elle kurun: https://docs.astral.sh/uv/'
     }
@@ -79,9 +83,17 @@ Step 'Python 3.12 ve gitex kuruluyor (ilk seferde birkaç dakika sürebilir)'
 & $uv tool install --force --python 3.12 $Root
 if ($LASTEXITCODE -ne 0) { Fail 'gitex kurulamadı.' 'Yukarıdaki hatayı kontrol edin; bu betiği tekrar çalıştırmak güvenlidir.' }
 
-$binDir = (& $uv tool dir --bin).Trim()
+$binDir = (& $uv tool dir --bin 2>$null | Select-Object -First 1).Trim()
 if (-not $NoModifyPath) {
-    & $uv tool update-shell *> $null
+    # uv "zaten PATH'te" gibi bilgileri stderr'e yazar; çıktıyı yutup sonucu kendimiz doğrularız.
+    & $uv tool update-shell 2>&1 | Out-Null
+    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    $entries = @($userPath -split ';' | Where-Object { $_ } | ForEach-Object { $_.TrimEnd('\') })
+    if ($entries -notcontains $binDir.TrimEnd('\')) {
+        $newPath = (@($binDir) + $entries) -join ';'
+        [Environment]::SetEnvironmentVariable('Path', $newPath, 'User')
+        Ok "PATH'e eklendi: $binDir"
+    }
 }
 $env:Path = "$binDir;$env:Path"
 $gitex = Join-Path $binDir 'gitex.exe'
@@ -96,10 +108,17 @@ if (-not $NoSetup -and -not [Console]::IsInputRedirected) {
 
 Write-Host ''
 Write-Host 'Kurulum tamam.' -ForegroundColor Green
-if ($NoModifyPath) {
-    Write-Host "  PATH değiştirilmedi; komut: $gitex"
-} else {
-    Write-Host '  Yeni açacağınız terminallerde `gitex` doğrudan çalışır.'
-}
 Write-Host '  Başlamak için bir git deposunda:  gitex ask "Son değişiklikler neler?"'
 Write-Host '  Ayarlar: gitex setup  ·  Kontrol: gitex doctor  ·  Tüm komutlar: gitex --help'
+
+$callerEntries = @($CallerPath -split ';' | Where-Object { $_ } | ForEach-Object { $_.TrimEnd('\') })
+if ($NoModifyPath) {
+    Write-Host "  PATH değiştirilmedi; komut: $gitex"
+} elseif ($callerEntries -notcontains $binDir.TrimEnd('\')) {
+    # Bir alt süreç, kendisini başlatan terminalin PATH'ini değiştiremez.
+    Write-Host ''
+    Write-Host '  ÖNEMLİ: Bu terminal penceresi gitex''i henüz tanımıyor.' -ForegroundColor Yellow
+    Write-Host '  Terminali kapatıp yeniden açın — ya da bu pencerede hemen kullanmak için yapıştırın:' -ForegroundColor Yellow
+    Write-Host "    PowerShell:  `$env:Path = `"$binDir;`$env:Path`""
+    Write-Host "    cmd:         set `"Path=$binDir;%Path%`""
+}

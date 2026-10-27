@@ -41,3 +41,4 @@ Her satır: tarih — karar — gerekçe.
 - 2026-10-27 — `init`'in yazdığı repo dosyası yalnızca yorum içerir; eskiden etkin `[llm]` değerleri yazıp global ayarı gölgeliyordu.
 - 2026-10-27 — Kurulum: uv'nin resmi kurucusu + `uv tool install --python 3.12 .`; uv kendi Python'unu indirir, sistem Python'una dokunulmaz. git güvenlik gereği clone'da betik çalıştırmadığı için clone sonrası tek komut gerekir. CI'da `install.sh` temiz imajda uçtan uca koşar.
 - 2026-10-27 — `doctor` bağlantıyı ücretsiz uç noktalarla test eder (OpenAI uyumlu: model listesi; Anthropic: model detayı; GitLab: proje okuma); token harcanmaz.
+- 2026-10-27 — install.ps1 `$ErrorActionPreference = 'Continue'` kullanır, hatalar `$LASTEXITCODE` ile denetlenir: Windows PowerShell 5.1 yönlendirilen yerel program stderr'ini `NativeCommandError` yapıp 'Stop' altında betiği öldürüyor.

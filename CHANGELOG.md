@@ -13,6 +13,13 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esaslıdır; sü
 - API anahtarları ve GitLab token'ları işletim sisteminin anahtar kasasında saklanır; ortam
   değişkeni tanımlıysa önceliklidir.
 
+### Düzeltildi
+- Windows kurulumu, uv'nin stderr'e yazdığı "zaten PATH'te" bilgisinde yarıda kesiliyordu
+  (PowerShell 5.1 bunu hataya çeviriyordu); sihirbaz hiç açılmıyordu.
+- Kurulumu başlatan terminal yeni PATH'i göremediği için `gitex` tanınmıyordu; kurulum artık bunu
+  tespit edip pencereyi yeniden açmayı ya da yapıştırılacak tek satırı gösteriyor. Kullanıcı PATH'i
+  uv'ye bırakılmadan doğrulanıyor.
+
 ### Değişti
 - `gitex init` artık etkin ayar yazmaz; oluşturduğu dosya yalnızca açıklama içerir ve global
   ayarları gölgelemez.

@@ -12,6 +12,8 @@
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+# Bu betiği başlatan kabuğun PATH'i (sonda uyarmak için).
+CALLER_PATH=$PATH
 SETUP=1
 MODIFY_PATH=1
 UNINSTALL=0
@@ -87,10 +89,19 @@ fi
 
 echo
 printf "${G}Kurulum tamam.${N}\n"
-if [ "$MODIFY_PATH" = 1 ]; then
-    echo "  Yeni açacağınız terminallerde 'gitex' doğrudan çalışır."
-else
-    echo "  PATH değiştirilmedi; komut: $BIN_DIR/gitex"
-fi
 echo "  Başlamak için bir git deposunda:  gitex ask \"Son değişiklikler neler?\""
 echo "  Ayarlar: gitex setup  ·  Kontrol: gitex doctor  ·  Tüm komutlar: gitex --help"
+if [ "$MODIFY_PATH" = 0 ]; then
+    echo "  PATH değiştirilmedi; komut: $BIN_DIR/gitex"
+else
+    # Bir alt süreç, kendisini başlatan kabuğun PATH'ini değiştiremez.
+    case ":$CALLER_PATH:" in
+        *":$BIN_DIR:"*) ;;
+        *)
+            echo
+            printf "\033[33m  ÖNEMLİ: Bu terminal gitex'i henüz tanımıyor.\033[0m\n"
+            printf "\033[33m  Terminali kapatıp yeniden açın — ya da bu pencerede hemen kullanmak için:\033[0m\n"
+            echo "    export PATH=\"$BIN_DIR:\$PATH\""
+            ;;
+    esac
+fi
