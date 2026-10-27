@@ -34,3 +34,10 @@ Her satır: tarih — karar — gerekçe.
 - 2026-10-27 — Değerlendirme yalnızca yerel git verisiyle çalışır; GitLab senaryoları `responses` (dev bağımlılığı) gerektirdiği için testlerde kalır.
 - 2026-10-27 — `Session.open` önce LLM sağlayıcısını kurar, sonra indeksi açar: config hatası indeks dosyasını açık bırakmaz (Windows'ta dosya kilidi).
 - 2026-10-27 — Ana README İngilizce (uluslararası okuyucu), Türkçe karşılığı README.tr.md; iki dosya aynı yapıyı korur. Başlık bağlantıları GitHub/GitLab farkı için açık `<a id>` çapalarıyla verilir. Demo görseli fixture deposuna göre temsilîdir (gerçek bir model koşusundan alınmadı) ve README bunu belirtir.
+- 2026-10-27 — Bağımlılık: `keyring` — API anahtarı/token'ı işletim sisteminin anahtar kasasında saklamak için (Windows Credential Manager, macOS Keychain, Secret Service). Sırlar dosyaya yazılmaz; okuma sırası env → kasa. Kasa yoksa (ör. başsız Linux) env'e düşülür.
+- 2026-10-27 — Bağımlılık: `tomlkit` — `gitex config set` dosyaya yazarken yorumları ve biçimi korur (`tomllib` yalnızca okur).
+- 2026-10-27 — Kullanıcı hiçbir dosyayı elle düzenlemez: `setup` sihirbazı + `config`/`auth`/`doctor`. Kapsam varsayılanı: `llm.*` ve `privacy.*` global, `gitlab.*` depo; `--global`/`--repo` ile değişir.
+- 2026-10-27 — Kasadaki anahtar adı sağlayıcı ve uç nokta sunucusuna göre (`llm:openai_compat@api.openai.com`, `gitlab:<host>`); farklı sunucuların anahtarları karışmaz.
+- 2026-10-27 — `init`'in yazdığı repo dosyası yalnızca yorum içerir; eskiden etkin `[llm]` değerleri yazıp global ayarı gölgeliyordu.
+- 2026-10-27 — Kurulum: uv'nin resmi kurucusu + `uv tool install --python 3.12 .`; uv kendi Python'unu indirir, sistem Python'una dokunulmaz. git güvenlik gereği clone'da betik çalıştırmadığı için clone sonrası tek komut gerekir. CI'da `install.sh` temiz imajda uçtan uca koşar.
+- 2026-10-27 — `doctor` bağlantıyı ücretsiz uç noktalarla test eder (OpenAI uyumlu: model listesi; Anthropic: model detayı; GitLab: proje okuma); token harcanmaz.

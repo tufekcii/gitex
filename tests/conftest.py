@@ -4,7 +4,10 @@ import shutil
 from collections.abc import Iterator
 from pathlib import Path
 
+import keyring
 import pytest
+from keyring.backend import KeyringBackend
+from keyring.errors import PasswordDeleteError
 
 from gitex.evals.fixture import FixtureRepo, build_fixture_repo
 from gitex.git.reader import GitRepo
@@ -28,8 +31,39 @@ def _isolated_env(
         "GITEX_LLM_MODE",
         "GITEX_GITLAB_URL",
         "GITEX_GITLAB_PROJECT",
+        "ANTHROPIC_API_KEY",
     ):
         monkeypatch.delenv(name, raising=False)
+
+
+class MemoryKeyring(KeyringBackend):
+    """Gerçek işletim sistemi kasasına dokunmayan bellek içi kasa."""
+
+    priority = 1
+
+    def __init__(self) -> None:
+        super().__init__()  # type: ignore[no-untyped-call]
+        self.store: dict[tuple[str, str], str] = {}
+
+    def get_password(self, service: str, username: str) -> str | None:
+        return self.store.get((service, username))
+
+    def set_password(self, service: str, username: str, password: str) -> None:
+        self.store[(service, username)] = password
+
+    def delete_password(self, service: str, username: str) -> None:
+        if (service, username) not in self.store:
+            raise PasswordDeleteError(username)
+        del self.store[(service, username)]
+
+
+@pytest.fixture(autouse=True)
+def memory_keyring() -> Iterator[MemoryKeyring]:
+    previous = keyring.get_keyring()
+    kr = MemoryKeyring()
+    keyring.set_keyring(kr)
+    yield kr
+    keyring.set_keyring(previous)
 
 
 @pytest.fixture(scope="session")

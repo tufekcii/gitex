@@ -126,20 +126,60 @@ sorularda karşılaştırabilirsiniz.
 
 ## 🚀 Hızlı başlangıç
 
-**Gereksinimler:** Python 3.12+, [uv](https://docs.astral.sh/uv/) ve `PATH`'te `git`.
+Yalnızca `git` gerekir. Kurulum betiği gerisini halleder — [uv](https://docs.astral.sh/uv/),
+size özel bir Python 3.12 (sistemdeki Python'a dokunulmaz) ve `PATH`'te `gitex` komutu — ardından
+kurulum sihirbazını açar.
+
+**1. Klonlayın ve kurun**
+
+<table>
+<tr><th>Windows</th><th>macOS / Linux</th></tr>
+<tr>
+<td>
+
+```powershell
+git clone <repo-url> gitex
+cd gitex
+.\install.cmd
+```
+
+</td>
+<td>
 
 ```bash
-# CLI'ı kurun (bu deponun bir kopyasından)
-uv tool install .
+git clone <repo-url> gitex
+cd gitex
+./install.sh
+```
 
-# Herhangi bir git deposunun içinde
-gitex init        # .gitex/config.toml oluşturur, .gitex/'i .gitignore'a ekler
-gitex index       # yerel indeksi kurar (sonrasında artımlı)
+</td>
+</tr>
+</table>
+
+Windows'ta `install.cmd`'ye çift tıklamak da yeterli. Kurulumu tekrar çalıştırmak güvenlidir;
+`git pull` sonrası güncelleme de aynı komutla yapılır.
+
+**2. Birkaç soruyu yanıtlayın** — sihirbaz kendiliğinden açılır (istediğiniz zaman `gitex setup`):
+
+```text
+1. Hangi modeli kullanacaksın?           Claude · Ollama · vLLM · OpenAI
+2. API anahtarı                          işletim sisteminin anahtar kasasına, asla dosyaya değil
+3. GitLab (opsiyonel)                    proje git remote'undan algılanır
+4. İndeks                                bulunduğunuz depo için kurulur
+```
+
+**3. Sorun**
+
+```bash
+cd projeniz
 gitex ask "Login'deki rate limit ne zaman eklendi?"
 ```
 
-Soru sormadan önce gitex'i bir modele yönlendirin — bkz. [Model sağlayıcıları](#model-saglayicilari).
-`ask`, indeks yoksa ya da eskiyse onu otomatik günceller.
+`gitex doctor` kurulumun tamamını istediğiniz an kontrol eder ve neyi düzeltmeniz gerektiğini söyler.
+
+> [!TIP]
+> Hiçbir ayar dosyasını açmanız gerekmez. Model, anahtarlar, GitLab, gizlilik — hepsi
+> `gitex setup`, `gitex config` ve `gitex auth` ile yönetilir.
 
 ## 💬 Kullanım
 
@@ -163,17 +203,37 @@ gitex ask "..." --json                 # cevap + doğrulanmış kaynaklar, makin
 
 ### Komutlar
 
+**Sor ve keşfet**
+
 | Komut | Ne yapar | LLM gerekir |
 |---|---|:---:|
-| `gitex init` | `.gitex/config.toml` oluşturur, `.gitex/`'i `.gitignore`'a ekler | — |
-| `gitex index [--rebuild]` | Yerel git geçmişini artımlı indeksler | — |
-| `gitex sync [--full]` | GitLab merge request, review yorumu ve issue senkronu | — |
 | `gitex ask "soru"` | Soruyu kaynaklarıyla yanıtlar | ✓ |
 | `gitex explain <sha \| !MR>` | Bir commit'i ya da merge request'i açıklar | ✓ |
+| `gitex chat` | Takip sorularında bağlamı koruyan etkileşimli oturum | ✓ |
 | `gitex when "ifade"` | Bir ifadenin ne zaman eklendiği/kaldırıldığı (pickaxe) | — |
 | `gitex file <yol> [--llm]` | Dosyanın evrimi: yazarlar, yeniden adlandırmalar, aktivite | opsiyonel |
-| `gitex chat` | Takip sorularında bağlamı koruyan etkileşimli oturum | ✓ |
-| `gitex status` | İndeks durumu, son senkron ve config özeti | — |
+
+**Kur ve yönet**
+
+| Komut | Ne yapar |
+|---|---|
+| `gitex setup` | Adım adım kurulum: model, API anahtarı, GitLab, indeks |
+| `gitex doctor [--offline]` | git, ayarlar, indeks, model ve GitLab bağlantısını kontrol eder |
+| `gitex config show` | Etkin ayarlar ve her birinin nereden geldiği |
+| `gitex config set <ayar> <değer>` | Bir ayarı değiştirir (`--global` tüm depolar · `--repo` bu depo) |
+| `gitex config get / unset <ayar>` | Bir ayarı okur ya da kaldırır |
+| `gitex config list-keys` | Tüm ayarlar, türleri ve varsayılanları |
+| `gitex auth login [llm\|gitlab]` | API anahtarını/token'ı anahtar kasasına kaydeder (gizli giriş) |
+| `gitex auth status` / `logout` | Hangi sırrın nereden okunduğu · kasadan silme |
+
+**Veri**
+
+| Komut | Ne yapar |
+|---|---|
+| `gitex index [--rebuild]` | Yerel git geçmişini indeksler (artımlı; `ask` bunu kendisi yapar) |
+| `gitex sync [--full]` | GitLab merge request, review yorumu ve issue senkronu |
+| `gitex status` | İndeks durumu, son senkron ve config özeti |
+| `gitex init` | `.gitex/` oluşturur ve `.gitignore`'a ekler (`setup` bunu yapar) |
 
 Genel seçenek: `-C, --repo YOL` başka bir dizindeki depoyu hedefler.
 
@@ -251,55 +311,66 @@ model sorgusunu daraltması gerektiğini bilir.
 
 ## ⚙️ Yapılandırma
 
-gitex şunları okur (sonraki öncekini ezer):
+Her şey komut satırından yönetilir — yönlendirmeli yol için `gitex setup`, tek tek ayarlar için
+`gitex config`, sırlar için `gitex auth`. Hiçbir dosyayı açmanız gerekmez.
 
-1. `~/.config/gitex/config.toml` (ya da `GITEX_CONFIG` ile verilen yol)
-2. `<repo>/.gitex/config.toml`
-3. Ortam değişkenleri: `GITEX_LLM_PROVIDER`, `GITEX_LLM_MODEL`, `GITEX_LLM_BASE_URL`,
-   `GITEX_LLM_MODE`, `GITEX_GITLAB_URL`, `GITEX_GITLAB_PROJECT`
+```bash
+gitex config show                                  # tüm ayarlar, değerleri ve kaynakları
+gitex config set llm.model claude-opus-5-5         # tek bir ayarı değiştir
+gitex config set privacy.send_diffs hayır          # evet/hayır, true/false
+gitex config set privacy.exclude_paths "*.env,secrets/**"   # listeler: virgülle
+gitex config unset llm.mode                        # varsayılana dön
+gitex config list-keys                             # tüm ayarlar, türleri ve varsayılanları
+```
+
+**Kapsam.** Model ve gizlilik ayarları varsayılan olarak tüm depolarınız için geçerlidir; GitLab
+ayarları bulunduğunuz depo içindir. `--global` ya da `--repo` ile değiştirebilirsiniz. Depo ayarı
+global ayarı, `GITEX_*` ortam değişkenleri ikisini de ezer (`GITEX_LLM_PROVIDER`,
+`GITEX_LLM_MODEL`, `GITEX_LLM_BASE_URL`, `GITEX_LLM_MODE`, `GITEX_GITLAB_URL`,
+`GITEX_GITLAB_PROJECT`).
 
 > [!IMPORTANT]
-> Sırlar config dosyalarına yazılmaz. LLM anahtarı `llm.api_key_env` ile adı verilen değişkenden
-> (varsayılan `GITEX_LLM_API_KEY`), GitLab token'ı `GITEX_GITLAB_TOKEN`'dan okunur.
+> **Sırlar hiçbir dosyaya yazılmaz.** `gitex auth login` API anahtarlarını ve token'ları işletim
+> sisteminin anahtar kasasına (Windows Credential Manager, macOS Keychain, Linux Secret Service)
+> kaydeder. Tanımlıysa ortam değişkeni önceliklidir — `GITEX_LLM_API_KEY` (ya da
+> `llm.api_key_env`'deki ad) ve `GITEX_GITLAB_TOKEN` — CI için kullanışlıdır.
 
-```toml
-[llm]
-provider = "openai_compat"        # veya "anthropic"
-model = "qwen2.5-7b-instruct"
-base_url = "http://localhost:8000/v1"
-api_key_env = "GITEX_LLM_API_KEY"
-mode = "agent"                    # "agent" (tool-use) veya "simple"
-max_tool_calls = 12
-temperature = 0.1                 # yalnızca openai_compat'a gönderilir
-
-[privacy]
-send_diffs = true                 # false: LLM'e yalnızca metadata ve mesajlar gider
-max_diff_chars = 12000
-exclude_paths = ["*.env", "*.pem", "*.key", "secrets/**", "*.lock"]
-
-[gitlab]
-url = "https://gitlab.com"
-project = "grup/proje"
+```bash
+gitex auth login                 # LLM API anahtarı, gizli giriş
+gitex auth login gitlab          # GitLab token'ı (read_api)
+echo "$KEY" | gitex auth login --stdin   # betikler için etkileşimsiz
+gitex auth status                # hangi sır, nereden (maskeli)
+gitex auth logout                # kasadan sil
 ```
 
 <details>
-<summary><b>Tüm <code>[llm]</code> seçenekleri</b></summary>
+<summary><b>Tüm ayarlar</b></summary>
 
-| Anahtar | Varsayılan | Açıklama |
+| Ayar | Varsayılan | Açıklama |
 |---|---|---|
-| `provider` | `openai_compat` | `openai_compat` (vLLM, Ollama, OpenAI) ya da `anthropic` |
-| `model` | `qwen2.5-7b-instruct` | Uç noktanın beklediği model adı |
-| `base_url` | — | `openai_compat` için zorunlu |
-| `api_key_env` | `GITEX_LLM_API_KEY` | Anahtarı tutan ortam değişkeninin adı |
-| `mode` | `agent` | `agent` ya da `simple` |
-| `max_tool_calls` | `12` | Agent modunda soru başına araç çağrısı bütçesi |
-| `temperature` | `0.1` | Yalnızca `openai_compat`'a gönderilir |
-| `max_tokens` | sağlayıcı varsayılanı | `openai_compat` için 2048, `anthropic` için 16000 |
-| `timeout` | `120` | İstek zaman aşımı (saniye) |
-| `tool_output_chars` | `8000` | Tek bir araç çıktısının karakter bütçesi |
-| `context_chars` | `40000` | Simple modda toplam bağlam bütçesi |
-| `simple_top_n` | `6` | Simple modda detayı bağlama konan commit sayısı |
-| `anthropic_fallbacks` | `true` | Claude API'nin reddedilen isteği yedek modelde yeniden denemesi |
+| `llm.provider` | `openai_compat` | `openai_compat` (vLLM, Ollama, OpenAI) ya da `anthropic` |
+| `llm.model` | `qwen2.5-7b-instruct` | Uç noktanın beklediği model adı |
+| `llm.base_url` | — | Sunucu adresi; `openai_compat` için zorunlu |
+| `llm.api_key_env` | `GITEX_LLM_API_KEY` | Kasadan önce bakılan ortam değişkeni |
+| `llm.mode` | `agent` | `agent` ya da `simple` |
+| `llm.max_tool_calls` | `12` | Agent modunda soru başına araç çağrısı bütçesi |
+| `llm.temperature` | `0.1` | Yalnızca `openai_compat`'a gönderilir |
+| `llm.max_tokens` | sağlayıcı varsayılanı | `openai_compat` için 2048, `anthropic` için 16000 |
+| `llm.timeout` | `120` | İstek zaman aşımı (saniye) |
+| `llm.tool_output_chars` | `8000` | Tek bir araç çıktısının karakter bütçesi |
+| `llm.context_chars` | `40000` | Simple modda toplam bağlam bütçesi |
+| `llm.simple_top_n` | `6` | Simple modda detayı bağlama konan commit sayısı |
+| `llm.anthropic_fallbacks` | `true` | Claude API'nin reddedilen isteği yedek modelde denemesi |
+| `privacy.send_diffs` | `true` | `false`: LLM'e yalnızca metadata ve mesajlar gider |
+| `privacy.max_diff_chars` | `12000` | Commit başına gönderilen en büyük diff |
+| `privacy.exclude_paths` | `*.env, *.pem, *.key, secrets/**, *.lock` | Diff'i hiç gönderilmeyen dosyalar |
+| `gitlab.url` | `https://gitlab.com` | GitLab adresi |
+| `gitlab.project` | — | `grup/proje` ya da sayısal ID; GitLab özelliklerini açar |
+| `gitlab.per_page` | `100` | API sayfa boyutu |
+| `gitlab.max_retries` | `5` | Hız sınırında yeniden deneme sayısı |
+
+Ayarlar TOML olarak `~/.config/gitex/config.toml` ve `<repo>/.gitex/config.toml` içinde saklanır
+(`gitex config path`); gitex yazarken dosyadaki yorumlar korunur.
 
 </details>
 
@@ -307,67 +378,68 @@ project = "grup/proje"
 
 ### Model sağlayıcıları
 
+`gitex setup` bunların hepsini etkileşimli olarak kurar. Komutla karşılıkları:
+
 <details open>
+<summary><b>Claude (Anthropic API)</b></summary>
+
+```bash
+gitex config set llm.provider anthropic
+gitex config set llm.model claude-opus-5-5
+gitex auth login
+```
+
+Claude API bir isteği reddederse istek sunucu tarafında yedek bir modelde denenir
+(kapatmak için `gitex config set llm.anthropic_fallbacks false`).
+
+</details>
+
+<details>
+<summary><b>Ollama</b> — yerel ve ücretsiz</summary>
+
+```bash
+gitex config set llm.provider openai_compat
+gitex config set llm.base_url http://localhost:11434/v1
+gitex config set llm.model qwen2.5:7b
+gitex config set llm.mode simple        # küçük modellerde genelde daha isabetli
+```
+
+Yerel sunucu için anahtar gerekmez.
+
+</details>
+
+<details>
 <summary><b>vLLM</b></summary>
 
 ```bash
 vllm serve Qwen/Qwen2.5-7B-Instruct --enable-auto-tool-choice --tool-call-parser hermes
 ```
 
-```toml
-[llm]
-provider = "openai_compat"
-model = "Qwen/Qwen2.5-7B-Instruct"
-base_url = "http://localhost:8000/v1"
-mode = "agent"
+```bash
+gitex config set llm.provider openai_compat
+gitex config set llm.base_url http://localhost:8000/v1
+gitex config set llm.model Qwen/Qwen2.5-7B-Instruct
 ```
 
 Tool calling için `--enable-auto-tool-choice` ve modele uygun bir parser gerekir. Bunlar yoksa
-`mode = "simple"` kullanın.
-
-</details>
-
-<details>
-<summary><b>Ollama</b></summary>
-
-```toml
-[llm]
-provider = "openai_compat"
-model = "qwen2.5:7b"
-base_url = "http://localhost:11434/v1"
-mode = "simple"                   # küçük modellerde genelde daha isabetli
-```
-
-</details>
-
-<details>
-<summary><b>Claude (Anthropic API)</b></summary>
-
-```toml
-[llm]
-provider = "anthropic"
-model = "claude-opus-5-5"
-api_key_env = "ANTHROPIC_API_KEY"
-mode = "agent"
-```
-
-Claude API bir isteği reddederse istek sunucu tarafında yedek bir modelde yeniden denenir
-(`anthropic_fallbacks = true` varsayılan; kapatmak için `false`).
+`gitex config set llm.mode simple` kullanın.
 
 </details>
 
 <details>
 <summary><b>OpenAI</b></summary>
 
-```toml
-[llm]
-provider = "openai_compat"
-model = "<model-adı>"
-base_url = "https://api.openai.com/v1"
-api_key_env = "OPENAI_API_KEY"
+```bash
+gitex config set llm.provider openai_compat
+gitex config set llm.base_url https://api.openai.com/v1
+gitex config set llm.model <model-adı>
+gitex auth login
 ```
 
 </details>
+
+Ardından `gitex doctor` çalıştırın: sunucunun yanıt verdiğini, modelin var olduğunu ve anahtarın
+çalıştığını token harcamadan kontrol eder.
 
 ### Agent mı, simple mı?
 
@@ -380,9 +452,13 @@ api_key_env = "OPENAI_API_KEY"
 
 ## 🦊 GitLab entegrasyonu
 
+`gitex setup` projeyi `origin` remote'undan algılar. Ya da adım adım:
+
 ```bash
-export GITEX_GITLAB_TOKEN=...      # read_api yetkili bir token
-gitex sync                          # son senkrondan artımlı; baştan için --full
+gitex config set gitlab.url https://gitlab.sirket.com   # gitlab.com için gerekmez
+gitex config set gitlab.project grup/proje
+gitex auth login gitlab                                 # read_api yetkili bir token
+gitex sync                                              # artımlı; baştan için --full
 ```
 
 - Merge edilmiş ve açık merge request'leri, sistem dışı review yorumlarını (diff yorumlarında dosya
@@ -402,7 +478,7 @@ gitex sync                          # son senkrondan artımlı; baştan için --
 | Hariç yollar | `exclude_paths` ile eşleşen dosyaların diff'i hiç gönderilmez |
 | Yalnızca metadata | `send_diffs = false` tüm araçlardan diff ve kod satırlarını kaldırır |
 | Göndermeden denetim | `--show-context` istek yapılmadan önce mesajların tamamını basar |
-| Diskte sır yok | Anahtar ve token'lar yalnızca ortam değişkenlerinden okunur |
+| Diskte sır yok | Anahtar ve token'lar işletim sisteminin anahtar kasasında (ya da ortam değişkenlerinde) durur, ayar dosyalarında asla |
 
 <a id="degerlendirme"></a>
 
@@ -435,6 +511,8 @@ src/gitex/
 ├── cli.py            Typer komutları
 ├── config.py         TOML + ortam değişkeni yükleme, doğrulama (pydantic)
 ├── session.py        ask, explain ve chat'in ortak soru-cevap oturumu
+├── manage.py         setup, config, auth ve doctor komutları
+├── credentials.py    API anahtarı ve token'lar için işletim sistemi kasası
 ├── redact.py         Sır maskeleme
 ├── git/              git CLI okuyucu ve veri modelleri
 ├── index/            SQLite şeması ve migration, artımlı indeksleyici, arama
@@ -449,13 +527,26 @@ Tasarım kararları ve her bağımlılığın gerekçesi [`docs/decisions.md`](d
 ## 🛠 Geliştirme
 
 ```bash
-uv sync
+uv sync                                            # katkı verenler için proje ortamı
 uv run pytest                                      # hiçbir test ağa çıkmaz
 uv run ruff check . && uv run ruff format --check .
 uv run mypy                                        # strict
 ```
 
-CI (`.gitlab-ci.yml`) her push'ta lint, tip denetimi ve testleri çalıştırır.
+CI (`.gitlab-ci.yml`) her push'ta lint, tip denetimi, testler ve temiz bir makinede `install.sh`
+kurulumunu çalıştırır.
+
+<details>
+<summary><b>Kaldırma</b></summary>
+
+```bash
+gitex auth logout && gitex auth logout gitlab   # opsiyonel: kayıtlı sırları sil
+./install.sh --uninstall                         # Windows: .\install.cmd -Uninstall
+```
+
+`~/.config/gitex/` içindeki ayarlar ve depolardaki `.gitex/` klasörleri yerinde kalır.
+
+</details>
 
 ## 🗺 Yol haritası
 

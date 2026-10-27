@@ -6,6 +6,18 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esaslıdır; sü
 ## [Yayınlanmadı]
 
 ### Eklendi
+- Tek komutla kurulum: `install.cmd` / `install.ps1` (Windows) ve `install.sh` (macOS/Linux) uv'yi,
+  Python 3.12'yi ve `gitex` komutunu kurar, ardından kurulum sihirbazını açar; `--uninstall` ile kaldırır.
+- Dosya düzenlemeden yönetim: `gitex setup` (sihirbaz), `gitex config show/get/set/unset/list-keys/path`,
+  `gitex auth login/logout/status`, `gitex doctor`.
+- API anahtarları ve GitLab token'ları işletim sisteminin anahtar kasasında saklanır; ortam
+  değişkeni tanımlıysa önceliklidir.
+
+### Değişti
+- `gitex init` artık etkin ayar yazmaz; oluşturduğu dosya yalnızca açıklama içerir ve global
+  ayarları gölgelemez.
+
+### Eklendi (dokümantasyon)
 - İngilizce README (uluslararası okuyucu için) ve Türkçe `README.tr.md`; logo (açık/koyu tema),
   demo görseli, mimari diyagramı. `LICENSE` (MIT) dosyası.
 - `gitex chat`: takip sorularında bağlamı koruyan etkileşimli oturum (`/yeni`, `/mod`, `/json`,

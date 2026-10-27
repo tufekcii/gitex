@@ -127,20 +127,60 @@ on the same questions.
 
 ## 🚀 Quick start
 
-**Requirements:** Python 3.12+, [uv](https://docs.astral.sh/uv/) and `git` on your `PATH`.
+You only need `git`. The installer sets up everything else — [uv](https://docs.astral.sh/uv/),
+a private Python 3.12 (your system Python is untouched) and the `gitex` command on your `PATH` —
+then opens the setup wizard.
+
+**1. Clone and install**
+
+<table>
+<tr><th>Windows</th><th>macOS / Linux</th></tr>
+<tr>
+<td>
+
+```powershell
+git clone <repo-url> gitex
+cd gitex
+.\install.cmd
+```
+
+</td>
+<td>
 
 ```bash
-# Install the CLI (from a clone of this repository)
-uv tool install .
+git clone <repo-url> gitex
+cd gitex
+./install.sh
+```
 
-# Inside any Git repository
-gitex init        # creates .gitex/config.toml and adds .gitex/ to .gitignore
-gitex index       # builds the local index (incremental from then on)
+</td>
+</tr>
+</table>
+
+On Windows you can also just double-click `install.cmd`. Re-running the installer is safe and is
+also how you update after a `git pull`.
+
+**2. Answer a few questions** — the wizard starts automatically (or run `gitex setup` any time):
+
+```text
+1. Hangi modeli kullanacaksın?           Claude · Ollama · vLLM · OpenAI
+2. API anahtarı                          stored in your OS keychain, never in a file
+3. GitLab (opsiyonel)                    project detected from your git remote
+4. İndeks                                built for the current repository
+```
+
+**3. Ask**
+
+```bash
+cd your-project
 gitex ask "When was rate limiting added to login?"
 ```
 
-Point gitex at a model before asking — see [Model providers](#model-providers). `ask` updates the
-index automatically when it is missing or stale.
+`gitex doctor` checks the whole setup at any time and tells you exactly what to fix.
+
+> [!TIP]
+> You never have to open a config file. Everything — model, keys, GitLab, privacy — is managed with
+> `gitex setup`, `gitex config` and `gitex auth`.
 
 ## 💬 Usage
 
@@ -164,17 +204,37 @@ gitex ask "..." --json                 # answer + verified sources, machine-read
 
 ### Commands
 
+**Ask and explore**
+
 | Command | What it does | Needs an LLM |
 |---|---|:---:|
-| `gitex init` | Create `.gitex/config.toml`, add `.gitex/` to `.gitignore` | — |
-| `gitex index [--rebuild]` | Index local Git history incrementally | — |
-| `gitex sync [--full]` | Sync GitLab merge requests, review notes and issues | — |
 | `gitex ask "question"` | Answer a question with cited sources | ✓ |
 | `gitex explain <sha \| !MR>` | Explain a commit or a merge request | ✓ |
+| `gitex chat` | Interactive session that keeps follow-up context | ✓ |
 | `gitex when "expression"` | When an expression was added or removed (pickaxe) | — |
 | `gitex file <path> [--llm]` | How a file evolved: authors, renames, activity | optional |
-| `gitex chat` | Interactive session that keeps follow-up context | ✓ |
-| `gitex status` | Index state, last sync and configuration summary | — |
+
+**Set up and manage**
+
+| Command | What it does |
+|---|---|
+| `gitex setup` | Guided setup: model, API key, GitLab, index |
+| `gitex doctor [--offline]` | Check git, settings, index, model and GitLab connectivity |
+| `gitex config show` | Effective settings and where each one comes from |
+| `gitex config set <key> <value>` | Change a setting (`--global` all repos · `--repo` this repo) |
+| `gitex config get / unset <key>` | Read or remove a setting |
+| `gitex config list-keys` | Every setting with its type and default |
+| `gitex auth login [llm\|gitlab]` | Store an API key or token in the OS keychain (hidden input) |
+| `gitex auth status` / `logout` | See which secret is used and from where · remove it |
+
+**Data**
+
+| Command | What it does |
+|---|---|
+| `gitex index [--rebuild]` | Index local Git history (incremental; `ask` does this for you) |
+| `gitex sync [--full]` | Sync GitLab merge requests, review notes and issues |
+| `gitex status` | Index state, last sync and configuration summary |
+| `gitex init` | Create `.gitex/` and add it to `.gitignore` (done by `setup`) |
 
 Global option: `-C, --repo PATH` targets a repository in another directory.
 
@@ -256,55 +316,66 @@ knows to narrow its query.
 
 ## ⚙️ Configuration
 
-gitex reads, in increasing order of precedence:
+Everything is managed from the command line — `gitex setup` for the guided path, `gitex config`
+for individual settings and `gitex auth` for secrets. You never need to open a file.
 
-1. `~/.config/gitex/config.toml` (or the path in `GITEX_CONFIG`)
-2. `<repo>/.gitex/config.toml`
-3. Environment variables: `GITEX_LLM_PROVIDER`, `GITEX_LLM_MODEL`, `GITEX_LLM_BASE_URL`,
-   `GITEX_LLM_MODE`, `GITEX_GITLAB_URL`, `GITEX_GITLAB_PROJECT`
+```bash
+gitex config show                                  # every setting, its value and where it comes from
+gitex config set llm.model claude-opus-5-5         # change one setting
+gitex config set privacy.send_diffs false          # booleans: true/false, yes/no, evet/hayır
+gitex config set privacy.exclude_paths "*.env,secrets/**"   # lists: comma-separated
+gitex config unset llm.mode                        # fall back to the default
+gitex config list-keys                             # all settings with types and defaults
+```
+
+**Scope.** Model and privacy settings apply to all your repositories by default; GitLab settings
+apply to the current repository. Override with `--global` or `--repo`. A repository setting wins
+over a global one, and `GITEX_*` environment variables win over both
+(`GITEX_LLM_PROVIDER`, `GITEX_LLM_MODEL`, `GITEX_LLM_BASE_URL`, `GITEX_LLM_MODE`,
+`GITEX_GITLAB_URL`, `GITEX_GITLAB_PROJECT`).
 
 > [!IMPORTANT]
-> Secrets never go into config files. The LLM key is read from the variable named by
-> `llm.api_key_env` (default `GITEX_LLM_API_KEY`); the GitLab token from `GITEX_GITLAB_TOKEN`.
+> **Secrets never touch a file.** `gitex auth login` stores API keys and tokens in your operating
+> system's keychain (Windows Credential Manager, macOS Keychain, Linux Secret Service). An
+> environment variable, if set, takes precedence — `GITEX_LLM_API_KEY` (or the name in
+> `llm.api_key_env`) and `GITEX_GITLAB_TOKEN` — which is handy for CI.
 
-```toml
-[llm]
-provider = "openai_compat"        # or "anthropic"
-model = "qwen2.5-7b-instruct"
-base_url = "http://localhost:8000/v1"
-api_key_env = "GITEX_LLM_API_KEY"
-mode = "agent"                    # "agent" (tool use) or "simple"
-max_tool_calls = 12
-temperature = 0.1                 # sent to openai_compat only
-
-[privacy]
-send_diffs = true                 # false: only metadata and messages reach the LLM
-max_diff_chars = 12000
-exclude_paths = ["*.env", "*.pem", "*.key", "secrets/**", "*.lock"]
-
-[gitlab]
-url = "https://gitlab.com"
-project = "group/project"
+```bash
+gitex auth login                 # LLM API key, typed hidden
+gitex auth login gitlab          # GitLab token (read_api)
+echo "$KEY" | gitex auth login --stdin   # non-interactive, for scripts
+gitex auth status                # which secret is used and from where (masked)
+gitex auth logout                # remove it from the keychain
 ```
 
 <details>
-<summary><b>All <code>[llm]</code> options</b></summary>
+<summary><b>All settings</b></summary>
 
 | Key | Default | Description |
 |---|---|---|
-| `provider` | `openai_compat` | `openai_compat` (vLLM, Ollama, OpenAI) or `anthropic` |
-| `model` | `qwen2.5-7b-instruct` | Model name as the endpoint expects it |
-| `base_url` | — | Required for `openai_compat` |
-| `api_key_env` | `GITEX_LLM_API_KEY` | Name of the environment variable holding the key |
-| `mode` | `agent` | `agent` or `simple` |
-| `max_tool_calls` | `12` | Tool-call budget per question in agent mode |
-| `temperature` | `0.1` | Sent to `openai_compat` only |
-| `max_tokens` | provider default | 2048 for `openai_compat`, 16000 for `anthropic` |
-| `timeout` | `120` | Request timeout in seconds |
-| `tool_output_chars` | `8000` | Character budget for a single tool output |
-| `context_chars` | `40000` | Total context budget in simple mode |
-| `simple_top_n` | `6` | Commits whose details are included in simple mode |
-| `anthropic_fallbacks` | `true` | Let the Claude API retry a refused request on a fallback model |
+| `llm.provider` | `openai_compat` | `openai_compat` (vLLM, Ollama, OpenAI) or `anthropic` |
+| `llm.model` | `qwen2.5-7b-instruct` | Model name as the endpoint expects it |
+| `llm.base_url` | — | Server address; required for `openai_compat` |
+| `llm.api_key_env` | `GITEX_LLM_API_KEY` | Environment variable checked before the keychain |
+| `llm.mode` | `agent` | `agent` or `simple` |
+| `llm.max_tool_calls` | `12` | Tool-call budget per question in agent mode |
+| `llm.temperature` | `0.1` | Sent to `openai_compat` only |
+| `llm.max_tokens` | provider default | 2048 for `openai_compat`, 16000 for `anthropic` |
+| `llm.timeout` | `120` | Request timeout in seconds |
+| `llm.tool_output_chars` | `8000` | Character budget for a single tool output |
+| `llm.context_chars` | `40000` | Total context budget in simple mode |
+| `llm.simple_top_n` | `6` | Commits whose details are included in simple mode |
+| `llm.anthropic_fallbacks` | `true` | Let the Claude API retry a refused request on a fallback model |
+| `privacy.send_diffs` | `true` | `false`: only metadata and messages reach the LLM |
+| `privacy.max_diff_chars` | `12000` | Maximum diff size sent per commit |
+| `privacy.exclude_paths` | `*.env, *.pem, *.key, secrets/**, *.lock` | Files whose diffs are never sent |
+| `gitlab.url` | `https://gitlab.com` | GitLab instance |
+| `gitlab.project` | — | `group/project` or numeric ID; enables GitLab features |
+| `gitlab.per_page` | `100` | Page size for API calls |
+| `gitlab.max_retries` | `5` | Retries on rate limiting |
+
+Settings are stored as TOML in `~/.config/gitex/config.toml` and `<repo>/.gitex/config.toml`
+(`gitex config path`); comments in those files are preserved when gitex writes to them.
 
 </details>
 
@@ -312,67 +383,68 @@ project = "group/project"
 
 ### Model providers
 
+`gitex setup` covers all of these interactively. The equivalent commands:
+
 <details open>
+<summary><b>Claude (Anthropic API)</b></summary>
+
+```bash
+gitex config set llm.provider anthropic
+gitex config set llm.model claude-opus-5-5
+gitex auth login
+```
+
+If the Claude API declines a request, it is retried server-side on a fallback model
+(`gitex config set llm.anthropic_fallbacks false` to opt out).
+
+</details>
+
+<details>
+<summary><b>Ollama</b> — local and free</summary>
+
+```bash
+gitex config set llm.provider openai_compat
+gitex config set llm.base_url http://localhost:11434/v1
+gitex config set llm.model qwen2.5:7b
+gitex config set llm.mode simple        # usually more accurate on small models
+```
+
+No key needed for a local server.
+
+</details>
+
+<details>
 <summary><b>vLLM</b></summary>
 
 ```bash
 vllm serve Qwen/Qwen2.5-7B-Instruct --enable-auto-tool-choice --tool-call-parser hermes
 ```
 
-```toml
-[llm]
-provider = "openai_compat"
-model = "Qwen/Qwen2.5-7B-Instruct"
-base_url = "http://localhost:8000/v1"
-mode = "agent"
+```bash
+gitex config set llm.provider openai_compat
+gitex config set llm.base_url http://localhost:8000/v1
+gitex config set llm.model Qwen/Qwen2.5-7B-Instruct
 ```
 
 Tool calling needs `--enable-auto-tool-choice` and a parser that matches the model. Without them,
-use `mode = "simple"`.
-
-</details>
-
-<details>
-<summary><b>Ollama</b></summary>
-
-```toml
-[llm]
-provider = "openai_compat"
-model = "qwen2.5:7b"
-base_url = "http://localhost:11434/v1"
-mode = "simple"                   # usually more accurate on small models
-```
-
-</details>
-
-<details>
-<summary><b>Claude (Anthropic API)</b></summary>
-
-```toml
-[llm]
-provider = "anthropic"
-model = "claude-opus-5-5"
-api_key_env = "ANTHROPIC_API_KEY"
-mode = "agent"
-```
-
-If the Claude API declines a request, it is retried server-side on a fallback model
-(`anthropic_fallbacks = true` by default; set it to `false` to opt out).
+use `gitex config set llm.mode simple`.
 
 </details>
 
 <details>
 <summary><b>OpenAI</b></summary>
 
-```toml
-[llm]
-provider = "openai_compat"
-model = "<model-name>"
-base_url = "https://api.openai.com/v1"
-api_key_env = "OPENAI_API_KEY"
+```bash
+gitex config set llm.provider openai_compat
+gitex config set llm.base_url https://api.openai.com/v1
+gitex config set llm.model <model-name>
+gitex auth login
 ```
 
 </details>
+
+Run `gitex doctor` afterwards: it checks that the server answers, the model exists and the key
+works — without spending tokens.
 
 ### Agent or simple?
 
@@ -385,9 +457,13 @@ api_key_env = "OPENAI_API_KEY"
 
 ## 🦊 GitLab integration
 
+`gitex setup` detects the project from your `origin` remote. Or step by step:
+
 ```bash
-export GITEX_GITLAB_TOKEN=...      # a token with read_api scope
-gitex sync                          # incremental from the last sync; --full to start over
+gitex config set gitlab.url https://gitlab.example.com   # skip for gitlab.com
+gitex config set gitlab.project group/project
+gitex auth login gitlab                                  # a token with read_api scope
+gitex sync                                               # incremental; --full to start over
 ```
 
 - Syncs merged and open merge requests, non-system review notes (with file and line for diff
@@ -408,7 +484,7 @@ the model.
 | Excluded paths | Files matching `exclude_paths` never have their diff sent |
 | Metadata-only mode | `send_diffs = false` removes diffs and code lines from every tool |
 | Audit before sending | `--show-context` prints the exact messages before the request is made |
-| No secrets on disk | Keys and tokens are read only from environment variables |
+| No secrets on disk | Keys and tokens live in the OS keychain (or environment variables), never in config files |
 
 <a id="evaluation"></a>
 
@@ -441,6 +517,8 @@ src/gitex/
 ├── cli.py            Typer commands
 ├── config.py         TOML + environment loading, validation (pydantic)
 ├── session.py        Question/answer session shared by ask, explain and chat
+├── manage.py         setup, config, auth and doctor commands
+├── credentials.py    OS keychain access for API keys and tokens
 ├── redact.py         Secret masking
 ├── git/              git CLI reader and data models
 ├── index/            SQLite schema and migrations, incremental indexer, search
@@ -456,13 +534,26 @@ Design decisions and the reasoning behind each dependency are recorded in
 ## 🛠 Development
 
 ```bash
-uv sync
+uv sync                                            # project environment for contributors
 uv run pytest                                      # no test touches the network
 uv run ruff check . && uv run ruff format --check .
 uv run mypy                                        # strict
 ```
 
-CI (`.gitlab-ci.yml`) runs lint, type checking and tests on every push.
+CI (`.gitlab-ci.yml`) runs lint, type checking, tests and a clean-machine run of `install.sh` on
+every push.
+
+<details>
+<summary><b>Uninstall</b></summary>
+
+```bash
+gitex auth logout && gitex auth logout gitlab   # optional: remove stored secrets
+./install.sh --uninstall                         # Windows: .\install.cmd -Uninstall
+```
+
+Settings in `~/.config/gitex/` and `.gitex/` folders inside repositories are left in place.
+
+</details>
 
 ## 🗺 Roadmap
 

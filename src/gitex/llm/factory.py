@@ -14,8 +14,8 @@ def make_provider(cfg: LLMConfig) -> LLMProvider:
         if not cfg.base_url:
             raise ConfigError(
                 "openai_compat sağlayıcısı için `llm.base_url` gerekli.",
-                hint='Örn. base_url = "http://localhost:8000/v1" (vLLM) ya da '
-                '"http://localhost:11434/v1" (Ollama).',
+                hint="Kurulum için: gitex setup  ·  ya da: gitex config set llm.base_url "
+                "http://localhost:11434/v1",
             )
         return OpenAICompatProvider(cfg)
     if cfg.provider == "anthropic":

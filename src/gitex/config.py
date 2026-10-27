@@ -1,18 +1,22 @@
 """Config yükleme: kullanıcı (`~/.config/gitex/config.toml`) + repo (`.gitex/config.toml`) + env.
 
 Öncelik (düşükten yükseğe): varsayılanlar → kullanıcı config'i → repo config'i → ortam değişkenleri.
-Sırlar (API anahtarı, GitLab token'ı) yalnızca ortam değişkenlerinden okunur, dosyaya yazılmaz.
+Sırlar (API anahtarı, GitLab token'ı) dosyaya yazılmaz: önce ortam değişkeninden, yoksa işletim
+sisteminin anahtar kasasından okunur (`gitex auth login`). Dosyalar `gitex config set` ile yazılır.
 """
 
 from __future__ import annotations
 
+import json
 import os
 import tomllib
+import typing
 from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
+from gitex import credentials
 from gitex.errors import ConfigError
 
 GITEX_DIR = ".gitex"
@@ -44,7 +48,11 @@ class LLMConfig(_Section):
     anthropic_fallbacks: bool = True
 
     def api_key(self) -> str | None:
-        return os.environ.get(self.api_key_env) or None
+        return os.environ.get(self.api_key_env) or credentials.get_secret(self.key_name)
+
+    @property
+    def key_name(self) -> str:
+        return credentials.llm_key_name(self.provider, self.base_url)
 
 
 class PrivacyConfig(_Section):
@@ -70,9 +78,12 @@ class GitLabConfig(_Section):
     def enabled(self) -> bool:
         return bool(self.project)
 
-    @staticmethod
-    def token() -> str | None:
-        return os.environ.get(GITLAB_TOKEN_ENV) or None
+    def token(self) -> str | None:
+        return os.environ.get(GITLAB_TOKEN_ENV) or credentials.get_secret(self.key_name)
+
+    @property
+    def key_name(self) -> str:
+        return credentials.gitlab_key_name(self.url)
 
 
 class Config(_Section):
@@ -149,25 +160,133 @@ def load_config(repo_root: Path | None = None, *, use_env: bool = True) -> Confi
     return cfg
 
 
-SAMPLE_CONFIG = """\
-# gitex yapılandırması. Sırlar (API anahtarı, token) bu dosyaya YAZILMAZ;
-# ortam değişkenlerinden okunur.
+# ---------------------------------------------------------------------- yazma (gitex config)
 
-[llm]
-provider = "openai_compat"        # veya "anthropic"
-model = "qwen2.5-7b-instruct"
-base_url = "http://localhost:8000/v1"
-api_key_env = "GITEX_LLM_API_KEY"
-mode = "agent"                    # "agent" (tool-use) veya "simple"
-max_tool_calls = 12
-temperature = 0.1
+SECTIONS: dict[str, type[_Section]] = {
+    "llm": LLMConfig,
+    "privacy": PrivacyConfig,
+    "gitlab": GitLabConfig,
+}
+_TRUE = {"1", "true", "yes", "on", "evet", "e", "açık", "acik"}
+_FALSE = {"0", "false", "no", "off", "hayır", "hayir", "h", "kapalı", "kapali"}
 
-[privacy]
-send_diffs = true                 # false ise LLM'e sadece metadata + mesajlar gider
-max_diff_chars = 12000
-exclude_paths = ["*.env", "*.pem", "*.key", "secrets/**", "*.lock"]
 
-[gitlab]
-url = "https://gitlab.com"
-# project = "grup/proje"          # token: GITEX_GITLAB_TOKEN ortam değişkeni
+def config_path(scope: Literal["global", "repo"], repo_root: Path | None) -> Path:
+    if scope == "global":
+        return user_config_path()
+    if repo_root is None:
+        raise ConfigError(
+            "Bir git deposunun içinde değilsiniz.",
+            hint="Tüm depolar için ayar yapmak üzere --global kullanın.",
+        )
+    return repo_dir(repo_root) / CONFIG_FILE
+
+
+def all_keys() -> list[str]:
+    return [f"{sec}.{name}" for sec, model in SECTIONS.items() for name in model.model_fields]
+
+
+def split_key(key: str) -> tuple[str, str]:
+    section, _, field = key.partition(".")
+    if section not in SECTIONS or field not in SECTIONS[section].model_fields:
+        raise ConfigError(
+            f"Bilinmeyen ayar: {key}", hint="Geçerli ayarlar için: gitex config list-keys"
+        )
+    return section, field
+
+
+def _coerce(section: str, field: str, raw: str) -> Any:
+    annotation = SECTIONS[section].model_fields[field].annotation
+    args = typing.get_args(annotation)
+    text = raw.strip()
+    if annotation is bool:
+        if text.lower() in _TRUE:
+            return True
+        if text.lower() in _FALSE:
+            return False
+        raise ConfigError(f"{section}.{field} için evet/hayır (true/false) bekleniyor: {raw}")
+    if typing.get_origin(annotation) is list or list in args:
+        if text.startswith("["):
+            try:
+                value = json.loads(text)
+            except json.JSONDecodeError as exc:
+                raise ConfigError(f"Geçersiz liste: {raw}") from exc
+            return [str(v) for v in value]
+        return [part.strip() for part in text.split(",") if part.strip()]
+    return text
+
+
+def _load_doc(path: Path) -> Any:
+    import tomlkit
+
+    if path.is_file():
+        try:
+            return tomlkit.parse(path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            raise ConfigError(f"Config dosyası okunamadı: {path}: {exc}") from exc
+    return tomlkit.document()
+
+
+def set_value(path: Path, key: str, raw: str) -> Any:
+    """Değeri doğrulayıp TOML dosyasına yazar (yorumlar korunur); yazılan değeri döner."""
+    import tomlkit
+
+    section, field = split_key(key)
+    doc = _load_doc(path)
+    current = dict(doc.get(section, {}))
+    current[field] = _coerce(section, field, raw)
+    try:
+        model = SECTIONS[section].model_validate(current)
+    except ValidationError as exc:
+        msg = "; ".join(e["msg"] for e in exc.errors())
+        raise ConfigError(f"{key} için geçersiz değer '{raw}': {msg}") from exc
+    value = getattr(model, field)
+    if value is None:
+        raise ConfigError(f"{key} boş bırakılamaz; kaldırmak için: gitex config unset {key}")
+    if section not in doc:
+        doc[section] = tomlkit.table()
+    doc[section][field] = value
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(tomlkit.dumps(doc), encoding="utf-8")
+    return value
+
+
+def unset_value(path: Path, key: str) -> bool:
+    import tomlkit
+
+    section, field = split_key(key)
+    if not path.is_file():
+        return False
+    doc = _load_doc(path)
+    if section not in doc or field not in doc[section]:
+        return False
+    del doc[section][field]
+    path.write_text(tomlkit.dumps(doc), encoding="utf-8")
+    return True
+
+
+def value_sources(repo_root: Path | None) -> dict[str, str]:
+    """Her ayarın etkin değerinin nereden geldiği: varsayılan | global | repo | env."""
+    origin = dict.fromkeys(all_keys(), "varsayılan")
+    layers: list[tuple[str, Path]] = [("global", user_config_path())]
+    if repo_root is not None:
+        layers.append(("repo", repo_dir(repo_root) / CONFIG_FILE))
+    for name, path in layers:
+        if path.is_file():
+            for section, values in _read_toml(path).items():
+                if isinstance(values, dict):
+                    for field in values:
+                        origin[f"{section}.{field}"] = name
+    for env_name, (section, field) in _ENV_OVERRIDES.items():
+        if os.environ.get(env_name):
+            origin[f"{section}.{field}"] = f"env ({env_name})"
+    return origin
+
+
+SAMPLE_CONFIG = """# gitex repo ayarları. Bu dosyayı elle düzenlemeniz gerekmez:
+#   gitex setup                         # adım adım kurulum
+#   gitex config set llm.model <ad>     # tek bir ayar (--global: tüm depolar)
+#   gitex config show                   # etkin ayarlar ve kaynakları
+# Buraya yazılan ayarlar yalnızca bu depo için geçerlidir ve global ayarları ezer.
+# Sırlar (API anahtarı, token) bu dosyaya YAZILMAZ: gitex auth login
 """

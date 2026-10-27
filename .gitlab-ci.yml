@@ -31,3 +31,11 @@ test:
   stage: check
   script:
     - uv run pytest
+
+install:
+  stage: check
+  # install.sh'in temiz bir makinede uçtan uca çalıştığını doğrular.
+  script:
+    - ./install.sh --no-setup --no-modify-path
+    - "$(uv tool dir --bin)/gitex" --version
+    - "$(uv tool dir --bin)/gitex" doctor --offline || test $? -eq 1

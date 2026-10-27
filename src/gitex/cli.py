@@ -6,7 +6,6 @@ import json
 import sys
 from collections import Counter
 from collections.abc import Callable
-from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -25,7 +24,6 @@ from gitex.config import (
     SAMPLE_CONFIG,
     Config,
     index_path,
-    load_config,
     repo_dir,
 )
 from gitex.errors import GitexError
@@ -38,7 +36,9 @@ from gitex.index.indexer import index_repo, is_stale, open_index
 from gitex.index.search import FTSSearch
 from gitex.llm.base import LLMProvider, LLMResponse, Message, ToolSpec
 from gitex.llm.factory import make_provider
+from gitex.manage import auth_app, config_app, doctor, setup
 from gitex.session import Session
+from gitex.ui import console, err_console, fail, state
 
 app = typer.Typer(
     name="gitex",
@@ -48,22 +48,11 @@ app = typer.Typer(
     pretty_exceptions_enable=False,
 )
 
-console = Console()
-err_console = Console(stderr=True)
 
-
-@dataclass
-class State:
-    repo_path: Path = Path(".")
-
-    def repo(self) -> GitRepo:
-        return GitRepo(self.repo_path)
-
-    def config(self, repo: GitRepo) -> Config:
-        return load_config(repo.root)
-
-
-state = State()
+app.command()(setup)
+app.command()(doctor)
+app.add_typer(config_app, name="config")
+app.add_typer(auth_app, name="auth")
 
 
 def _version_callback(value: bool) -> None:
@@ -85,11 +74,7 @@ def main(
     state.repo_path = repo
 
 
-def _fail(exc: GitexError) -> typer.Exit:
-    err_console.print(f"[bold red]Hata:[/] {exc}")
-    if exc.hint:
-        err_console.print(f"[dim]İpucu: {exc.hint}[/]")
-    return typer.Exit(code=1)
+_fail = fail
 
 
 # ---------------------------------------------------------------------- init
@@ -97,19 +82,27 @@ def _fail(exc: GitexError) -> typer.Exit:
 
 @app.command()
 def init() -> None:
-    """`.gitex/` oluşturur, örnek config yazar ve `.gitignore`'a ekler."""
+    """`.gitex/` oluşturur ve `.gitignore`'a ekler (tam kurulum için: gitex setup)."""
     try:
         repo = state.repo()
     except GitexError as exc:
         raise _fail(exc) from exc
-    target = repo_dir(repo.root)
-    target.mkdir(exist_ok=True)
-    cfg = target / "config.toml"
+    cfg = repo_dir(repo.root) / "config.toml"
     if cfg.exists():
-        console.print(f"[yellow]Config zaten var:[/] {cfg}")
+        console.print(f"[yellow]Repo ayar dosyası zaten var:[/] {cfg}")
     else:
+        cfg.parent.mkdir(exist_ok=True)
         cfg.write_text(SAMPLE_CONFIG, encoding="utf-8")
-        console.print(f"[green]Örnek config yazıldı:[/] {cfg}")
+        console.print(f"[green]Repo ayar dosyası oluşturuldu:[/] {cfg}")
+    ensure_gitignore(repo)
+    console.print(
+        "Sonraki adım: [bold]gitex setup[/] (model, anahtar, GitLab) ya da [bold]gitex index[/]"
+    )
+
+
+def ensure_gitignore(repo: GitRepo) -> None:
+    """`.gitex/` satırını `.gitignore`'a (yoksa) ekler."""
+    repo_dir(repo.root).mkdir(exist_ok=True)
     gitignore = repo.root / ".gitignore"
     existing = gitignore.read_text(encoding="utf-8") if gitignore.exists() else ""
     if not any(line.strip() in (".gitex", ".gitex/") for line in existing.splitlines()):
@@ -117,7 +110,6 @@ def init() -> None:
         with gitignore.open("a", encoding="utf-8") as fh:
             fh.write(f"{prefix}.gitex/\n")
         console.print("[green].gitignore güncellendi[/] (.gitex/)")
-    console.print("Sonraki adım: [bold]gitex index[/]")
 
 
 # ---------------------------------------------------------------------- index
