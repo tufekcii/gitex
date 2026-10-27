@@ -6,11 +6,11 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esaslıdır; sü
 ## [Yayınlanmadı]
 
 ### Eklendi
-- `gitsor chat`: takip sorularında bağlamı koruyan etkileşimli oturum (`/yeni`, `/mod`, `/json`,
+- `gitex chat`: takip sorularında bağlamı koruyan etkileşimli oturum (`/yeni`, `/mod`, `/json`,
   `/çık`); büyüyen geçmiş, eski turları budamak yerine özetle yeni konuşma açılarak sıkıştırılır.
 - Hata mesajları: git deposu değil, boş depo, GitLab token'ı yok / yetkisiz, proje bulunamadı,
   LLM'e ulaşılamıyor, Claude kimlik bilgisi yok — her biri çözüm ipucuyla.
-- `evals/questions.toml` (19 soru) ve `python -m gitsor.evals` skorlayıcısı: kaynak isabeti,
+- `evals/questions.toml` (19 soru) ve `python -m gitex.evals` skorlayıcısı: kaynak isabeti,
   uydurma referans oranı, metin eşleşmesi, "bulamadım" doğruluğu.
 
 ## [0.1.0] — 2026-10-27

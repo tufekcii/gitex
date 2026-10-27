@@ -1,4 +1,4 @@
-# gitsor değerlendirme seti — `gitsor.evals.fixture` deposu üzerinde.
+# gitex değerlendirme seti — `gitex.evals.fixture` deposu üzerinde.
 #
 # `expected`: cevapta kaynak olarak geçmesi gereken commit'ler. Değerler fixture senaryosundaki
 # adım adlarıdır (`build_fixture_repo` içindeki `b.commit("<ad>", ...)`); skorlayıcı bunları

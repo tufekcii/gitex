@@ -6,16 +6,16 @@ from datetime import UTC, datetime
 import pytest
 import responses
 
-from gitsor.agent.citations import CitationVerifier
-from gitsor.agent.tools import Toolbox
-from gitsor.config import Config, GitLabConfig
-from gitsor.errors import GitLabError
-from gitsor.evals.fixture import FixtureRepo
-from gitsor.git.reader import GitRepo
-from gitsor.gitlab.client import GitLabClient
-from gitsor.gitlab.sync import sync_gitlab
-from gitsor.index.db import Database
-from gitsor.index.search import FTSSearch, MRQuery
+from gitex.agent.citations import CitationVerifier
+from gitex.agent.tools import Toolbox
+from gitex.config import Config, GitLabConfig
+from gitex.errors import GitLabError
+from gitex.evals.fixture import FixtureRepo
+from gitex.git.reader import GitRepo
+from gitex.gitlab.client import GitLabClient
+from gitex.gitlab.sync import sync_gitlab
+from gitex.index.db import Database
+from gitex.index.search import FTSSearch, MRQuery
 from tests.gitlab_mock import BASE, PROJECT, GitLabMock, scenario
 
 
@@ -152,7 +152,7 @@ def test_auth_error(
     with pytest.raises(GitLabError) as exc:
         sync_gitlab(_client(), indexed_db)
     assert exc.value.hint is not None
-    assert "GITSOR_GITLAB_TOKEN" in exc.value.hint
+    assert "GITEX_GITLAB_TOKEN" in exc.value.hint
 
 
 # ---------------------------------------------------------------------- araçlar

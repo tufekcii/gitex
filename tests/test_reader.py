@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from gitsor.errors import NotAGitRepoError
-from gitsor.evals.fixture import FixtureRepo, empty_repo
-from gitsor.git.reader import GitRepo, parse_hunks
+from gitex.errors import NotAGitRepoError
+from gitex.evals.fixture import FixtureRepo, empty_repo
+from gitex.git.reader import GitRepo, parse_hunks
 
 
 def test_not_a_repo(tmp_path: Path) -> None:

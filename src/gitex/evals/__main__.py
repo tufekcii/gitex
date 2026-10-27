@@ -1,4 +1,4 @@
-"""`uv run python -m gitsor.evals` — değerlendirme setini çalıştırır ve skorlar."""
+"""`uv run python -m gitex.evals` — değerlendirme setini çalıştırır ve skorlar."""
 
 from __future__ import annotations
 
@@ -10,9 +10,9 @@ from pathlib import Path
 from rich.console import Console
 from rich.table import Table
 
-from gitsor.config import load_config
-from gitsor.errors import GitsorError
-from gitsor.evals.runner import CaseResult, default_questions_path, load_cases, run_evals
+from gitex.config import load_config
+from gitex.errors import GitexError
+from gitex.evals.runner import CaseResult, default_questions_path, load_cases, run_evals
 
 
 def _mark(value: bool | None) -> str:
@@ -20,7 +20,7 @@ def _mark(value: bool | None) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="python -m gitsor.evals", description=__doc__)
+    parser = argparse.ArgumentParser(prog="python -m gitex.evals", description=__doc__)
     parser.add_argument(
         "--questions", type=Path, help="Soru seti (varsayılan: evals/questions.toml)"
     )
@@ -58,7 +58,7 @@ def main(argv: list[str] | None = None) -> int:
             console.print(f"[dim]{r.case.id}: {status}, {r.tool_calls} araç, {r.seconds:.1f} sn[/]")
 
         report = run_evals(cfg, cases, mode=args.mode, on_case=on_case)
-    except GitsorError as exc:
+    except GitexError as exc:
         console.print(f"[bold red]Hata:[/] {exc}")
         if exc.hint:
             console.print(f"[dim]İpucu: {exc.hint}[/]")
@@ -72,7 +72,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     out = Console()
-    table = Table(title=f"gitsor eval — {report.model} ({report.mode})")
+    table = Table(title=f"gitex eval — {report.model} ({report.mode})")
     for col in ("id", "isabet", "uydurma", "metin", "bulamadım", "düzeltme", "araç"):
         table.add_column(col)
     for r in report.results:

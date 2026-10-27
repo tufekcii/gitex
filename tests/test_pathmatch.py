@@ -1,6 +1,6 @@
 import pytest
 
-from gitsor.git.pathmatch import match_path
+from gitex.git.pathmatch import match_path
 
 
 @pytest.mark.parametrize(

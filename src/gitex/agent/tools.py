@@ -11,14 +11,14 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
-from gitsor.config import Config
-from gitsor.errors import GitsorError
-from gitsor.git.models import Commit
-from gitsor.git.reader import GitRepo
-from gitsor.index.db import Database
-from gitsor.index.search import FTSSearch, MRQuery, SearchQuery
-from gitsor.llm.base import ToolSpec
-from gitsor.redact import redact
+from gitex.config import Config
+from gitex.errors import GitexError
+from gitex.git.models import Commit
+from gitex.git.reader import GitRepo
+from gitex.index.db import Database
+from gitex.index.search import FTSSearch, MRQuery, SearchQuery
+from gitex.llm.base import ToolSpec
+from gitex.redact import redact
 
 GITLAB_TOOLS = frozenset({"search_mrs", "get_mr"})
 
@@ -197,7 +197,7 @@ class Toolbox:
             return ToolResult(f"Bilinmeyen araç: {name}", is_error=True)
         try:
             text = handler(args)
-        except (GitsorError, ValueError, TypeError, KeyError) as exc:
+        except (GitexError, ValueError, TypeError, KeyError) as exc:
             return ToolResult(f"Hata: {exc}", is_error=True)
         return self._finish(text)
 
@@ -428,7 +428,7 @@ class Toolbox:
         iid = int(str(args["iid"]).lstrip("!"))
         mr = self.search.get_mr(iid)
         if mr is None:
-            return f"!{iid} indekste yok (gitsor sync çalıştırıldı mı?)."
+            return f"!{iid} indekste yok (gitex sync çalıştırıldı mı?)."
         self.seen_mrs.add(iid)
         out = [
             f"!{mr.iid} {mr.title}",

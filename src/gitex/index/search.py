@@ -12,9 +12,9 @@ from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time
 from typing import Protocol
 
-from gitsor.git.pathmatch import has_glob
-from gitsor.index.db import Database
-from gitsor.textnorm import fold, fts_query
+from gitex.git.pathmatch import has_glob
+from gitex.index.db import Database
+from gitex.textnorm import fold, fts_query
 
 
 @dataclass(frozen=True, slots=True)

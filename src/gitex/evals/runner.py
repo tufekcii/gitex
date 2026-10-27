@@ -18,12 +18,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from gitsor.config import Config
-from gitsor.errors import GitsorError
-from gitsor.evals.fixture import FixtureRepo, build_fixture_repo
-from gitsor.git.reader import GitRepo
-from gitsor.llm.base import LLMProvider
-from gitsor.session import Mode, Session
+from gitex.config import Config
+from gitex.errors import GitexError
+from gitex.evals.fixture import FixtureRepo, build_fixture_repo
+from gitex.git.reader import GitRepo
+from gitex.llm.base import LLMProvider
+from gitex.session import Mode, Session
 
 NOT_FOUND_RE = re.compile(
     r"bulamad|bulunamad|bulunmuyor|yer almıyor|kayıt yok|iz yok|"
@@ -146,7 +146,7 @@ def default_questions_path() -> Path:
     for c in candidates:
         if c.is_file():
             return c
-    raise GitsorError(
+    raise GitexError(
         "evals/questions.toml bulunamadı.", hint="Repo kökünden çalıştırın ya da --questions verin."
     )
 
@@ -157,7 +157,7 @@ def load_cases(path: Path) -> list[Case]:
     cases = [Case(**raw) for raw in data.get("case", [])]
     ids = [c.id for c in cases]
     if len(ids) != len(set(ids)):
-        raise GitsorError("Değerlendirme setinde yinelenen id var.")
+        raise GitexError("Değerlendirme setinde yinelenen id var.")
     return cases
 
 
@@ -168,14 +168,14 @@ def render_question(case: Case, fx: FixtureRepo) -> str:
 def run_case(session: Session, case: Case, fx: FixtureRepo, mode: Mode | None) -> CaseResult:
     for key in case.expected:
         if key not in fx.shas:
-            raise GitsorError(f"{case.id}: bilinmeyen fixture adımı '{key}'")
+            raise GitexError(f"{case.id}: bilinmeyen fixture adımı '{key}'")
     expected = [fx.sha(k) for k in case.expected]
     session.toolbox.seen_shas.clear()
     session.toolbox.seen_mrs.clear()
     start = time.monotonic()
     try:
         result = session.ask(render_question(case, fx), mode=mode)
-    except GitsorError as exc:
+    except GitexError as exc:
         return CaseResult(
             case, expected, [], [], False, "", 0, time.monotonic() - start, 0, str(exc)
         )
@@ -203,7 +203,7 @@ def run_evals(
     on_case: Any = None,
 ) -> Report:
     # Windows'ta git nesneleri salt-okunur olabilir; temizlik hatası sonucu etkilemesin.
-    with tempfile.TemporaryDirectory(prefix="gitsor-eval-", ignore_cleanup_errors=True) as tmp:
+    with tempfile.TemporaryDirectory(prefix="gitex-eval-", ignore_cleanup_errors=True) as tmp:
         base = workdir or Path(tmp)
         fx = build_fixture_repo(base / "repo")
         repo = GitRepo(fx.path)

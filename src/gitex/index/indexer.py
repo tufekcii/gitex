@@ -8,11 +8,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from gitsor.config import index_path
-from gitsor.git.models import Commit
-from gitsor.git.reader import GitRepo
-from gitsor.index.db import Database
-from gitsor.textnorm import fold
+from gitex.config import index_path
+from gitex.git.models import Commit
+from gitex.git.reader import GitRepo
+from gitex.index.db import Database
+from gitex.textnorm import fold
 
 BATCH_SIZE = 2000
 

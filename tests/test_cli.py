@@ -4,8 +4,8 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from gitsor.cli import app
-from gitsor.evals.fixture import FixtureRepo
+from gitex.cli import app
+from gitex.evals.fixture import FixtureRepo
 
 runner = CliRunner()
 
@@ -13,7 +13,7 @@ runner = CliRunner()
 def test_help() -> None:
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
-    assert "gitsor" in result.output
+    assert "gitex" in result.output
 
 
 def test_version() -> None:
@@ -25,13 +25,13 @@ def test_version() -> None:
 def test_init_creates_config_and_gitignore(fixture_repo: FixtureRepo) -> None:
     result = runner.invoke(app, ["-C", str(fixture_repo.path), "init"])
     assert result.exit_code == 0, result.output
-    assert (fixture_repo.path / ".gitsor" / "config.toml").is_file()
+    assert (fixture_repo.path / ".gitex" / "config.toml").is_file()
     gitignore = (fixture_repo.path / ".gitignore").read_text(encoding="utf-8")
-    assert ".gitsor/" in gitignore
+    assert ".gitex/" in gitignore
     # İkinci çalıştırma tekrar eklememeli.
     runner.invoke(app, ["-C", str(fixture_repo.path), "init"])
     gitignore = (fixture_repo.path / ".gitignore").read_text(encoding="utf-8")
-    assert gitignore.count(".gitsor/") == 1
+    assert gitignore.count(".gitex/") == 1
 
 
 def test_index_and_status(fixture_repo: FixtureRepo) -> None:
@@ -53,7 +53,7 @@ def test_not_a_repo_message(tmp_path: Path) -> None:
 
 
 def _use_provider(monkeypatch, provider) -> None:
-    import gitsor.cli as cli
+    import gitex.cli as cli
 
     monkeypatch.setattr(cli, "provider_factory", lambda _cfg: provider)
 
@@ -75,7 +75,7 @@ def test_ask_json_auto_indexes(fixture_repo: FixtureRepo, monkeypatch) -> None:
     data = json.loads(result.stdout)
     assert data["sources"][0]["ref"] == sha
     assert data["tool_calls"][0]["name"] == "search_commits"
-    assert (fixture_repo.path / ".gitsor" / "index.db").exists()
+    assert (fixture_repo.path / ".gitex" / "index.db").exists()
 
 
 def test_ask_show_context(fixture_repo: FixtureRepo, monkeypatch) -> None:
@@ -149,7 +149,7 @@ def test_file_summary(fixture_repo: FixtureRepo) -> None:
 
 
 def test_llm_unreachable_message(fixture_repo: FixtureRepo, monkeypatch) -> None:
-    from gitsor.errors import LLMError
+    from gitex.errors import LLMError
 
     class Down:
         name = "down"
@@ -169,12 +169,12 @@ def test_sync_command(fixture_repo: FixtureRepo, monkeypatch) -> None:
 
     from tests.gitlab_mock import BASE, PROJECT, GitLabMock, scenario
 
-    cfg_dir = fixture_repo.path / ".gitsor"
+    cfg_dir = fixture_repo.path / ".gitex"
     cfg_dir.mkdir()
     (cfg_dir / "config.toml").write_text(
         f'[gitlab]\nurl = "{BASE}"\nproject = "{PROJECT}"\n', encoding="utf-8"
     )
-    monkeypatch.setenv("GITSOR_GITLAB_TOKEN", "dummy")
+    monkeypatch.setenv("GITEX_GITLAB_TOKEN", "dummy")
     with responses.RequestsMock(assert_all_requests_are_fired=False) as rsps:
         GitLabMock(scenario(fixture_repo)).install(rsps)
         result = runner.invoke(app, ["-C", str(fixture_repo.path), "sync"])

@@ -7,7 +7,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-from gitsor.textnorm import fold
+from gitex.textnorm import fold
 
 SCHEMA_VERSION = 1
 

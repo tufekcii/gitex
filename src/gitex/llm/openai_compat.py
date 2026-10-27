@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from gitsor.config import LLMConfig
-from gitsor.errors import LLMError
-from gitsor.llm.base import LLMResponse, Message, ToolCall, ToolSpec
+from gitex.config import LLMConfig
+from gitex.errors import LLMError
+from gitex.llm.base import LLMResponse, Message, ToolCall, ToolSpec
 
 DEFAULT_MAX_TOKENS = 2048
 

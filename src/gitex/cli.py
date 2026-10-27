@@ -1,4 +1,4 @@
-"""gitsor komut satırı arayüzü."""
+"""gitex komut satırı arayüzü."""
 
 from __future__ import annotations
 
@@ -18,9 +18,9 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from gitsor import __version__
-from gitsor.agent.loop import AgentResult, EventFn
-from gitsor.config import (
+from gitex import __version__
+from gitex.agent.loop import AgentResult, EventFn
+from gitex.config import (
     GITLAB_TOKEN_ENV,
     SAMPLE_CONFIG,
     Config,
@@ -28,20 +28,20 @@ from gitsor.config import (
     load_config,
     repo_dir,
 )
-from gitsor.errors import GitsorError
-from gitsor.git.models import Commit
-from gitsor.git.reader import GitRepo
-from gitsor.gitlab.client import GitLabClient
-from gitsor.gitlab.sync import sync_gitlab
-from gitsor.index.db import Database
-from gitsor.index.indexer import index_repo, is_stale, open_index
-from gitsor.index.search import FTSSearch
-from gitsor.llm.base import LLMProvider, LLMResponse, Message, ToolSpec
-from gitsor.llm.factory import make_provider
-from gitsor.session import Session
+from gitex.errors import GitexError
+from gitex.git.models import Commit
+from gitex.git.reader import GitRepo
+from gitex.gitlab.client import GitLabClient
+from gitex.gitlab.sync import sync_gitlab
+from gitex.index.db import Database
+from gitex.index.indexer import index_repo, is_stale, open_index
+from gitex.index.search import FTSSearch
+from gitex.llm.base import LLMProvider, LLMResponse, Message, ToolSpec
+from gitex.llm.factory import make_provider
+from gitex.session import Session
 
 app = typer.Typer(
-    name="gitsor",
+    name="gitex",
     help="Git geçmişini doğal dilde sorgula: ne değişti, ne zaman, kim, neden.",
     no_args_is_help=True,
     add_completion=False,
@@ -68,7 +68,7 @@ state = State()
 
 def _version_callback(value: bool) -> None:
     if value:
-        typer.echo(f"gitsor {__version__}")
+        typer.echo(f"gitex {__version__}")
         raise typer.Exit()
 
 
@@ -81,11 +81,11 @@ def main(
         False, "--version", callback=_version_callback, is_eager=True, help="Sürümü göster."
     ),
 ) -> None:
-    """gitsor ana komutu."""
+    """gitex ana komutu."""
     state.repo_path = repo
 
 
-def _fail(exc: GitsorError) -> typer.Exit:
+def _fail(exc: GitexError) -> typer.Exit:
     err_console.print(f"[bold red]Hata:[/] {exc}")
     if exc.hint:
         err_console.print(f"[dim]İpucu: {exc.hint}[/]")
@@ -97,10 +97,10 @@ def _fail(exc: GitsorError) -> typer.Exit:
 
 @app.command()
 def init() -> None:
-    """`.gitsor/` oluşturur, örnek config yazar ve `.gitignore`'a ekler."""
+    """`.gitex/` oluşturur, örnek config yazar ve `.gitignore`'a ekler."""
     try:
         repo = state.repo()
-    except GitsorError as exc:
+    except GitexError as exc:
         raise _fail(exc) from exc
     target = repo_dir(repo.root)
     target.mkdir(exist_ok=True)
@@ -112,12 +112,12 @@ def init() -> None:
         console.print(f"[green]Örnek config yazıldı:[/] {cfg}")
     gitignore = repo.root / ".gitignore"
     existing = gitignore.read_text(encoding="utf-8") if gitignore.exists() else ""
-    if not any(line.strip() in (".gitsor", ".gitsor/") for line in existing.splitlines()):
+    if not any(line.strip() in (".gitex", ".gitex/") for line in existing.splitlines()):
         prefix = "" if not existing or existing.endswith("\n") else "\n"
         with gitignore.open("a", encoding="utf-8") as fh:
-            fh.write(f"{prefix}.gitsor/\n")
-        console.print("[green].gitignore güncellendi[/] (.gitsor/)")
-    console.print("Sonraki adım: [bold]gitsor index[/]")
+            fh.write(f"{prefix}.gitex/\n")
+        console.print("[green].gitignore güncellendi[/] (.gitex/)")
+    console.print("Sonraki adım: [bold]gitex index[/]")
 
 
 # ---------------------------------------------------------------------- index
@@ -157,7 +157,7 @@ def index(
         repo = state.repo()
         with open_index(repo, rebuild=rebuild) as db:
             run_index(repo, db, quiet=quiet)
-    except GitsorError as exc:
+    except GitexError as exc:
         raise _fail(exc) from exc
 
 
@@ -178,9 +178,9 @@ def sync(
         repo = state.repo()
         cfg = state.config(repo)
         if not cfg.gitlab.enabled:
-            raise GitsorError(
+            raise GitexError(
                 "GitLab ayarlanmamış.",
-                hint='`.gitsor/config.toml` içinde [gitlab] project = "grup/proje" ayarlayın.',
+                hint='`.gitex/config.toml` içinde [gitlab] project = "grup/proje" ayarlayın.',
             )
         if not cfg.gitlab.token():
             err_console.print(
@@ -196,7 +196,7 @@ def sync(
                     err_console.print(f"[dim]  {n} MR senkronlandı…[/]")
 
             stats = sync_gitlab(client, db, full=full, progress=_progress)
-    except GitsorError as exc:
+    except GitexError as exc:
         raise _fail(exc) from exc
     if not quiet:
         kind = "tam" if stats.full else "artımlı"
@@ -215,7 +215,7 @@ def status() -> None:
     try:
         repo = state.repo()
         cfg = state.config(repo)
-    except GitsorError as exc:
+    except GitexError as exc:
         raise _fail(exc) from exc
     table = Table(show_header=False, box=None, pad_edge=False)
     table.add_column(style="bold")
@@ -233,7 +233,7 @@ def status() -> None:
             table.add_row("MR / issue", f"{db.count('merge_requests')} / {db.count('issues')}")
             table.add_row("Son GitLab senkronu", db.get_meta("gitlab_last_sync") or "-")
     else:
-        table.add_row("İndeks", "[yellow]yok[/] (gitsor index)")
+        table.add_row("İndeks", "[yellow]yok[/] (gitex index)")
     table.add_row("LLM", f"{cfg.llm.provider} / {cfg.llm.model} ({cfg.llm.mode})")
     if cfg.llm.base_url and cfg.llm.provider == "openai_compat":
         table.add_row("LLM uç noktası", cfg.llm.base_url)
@@ -319,7 +319,7 @@ def _open_session(*, show_context: bool, quiet: bool) -> Session:
     repo = state.repo()
     cfg = state.config(repo)
     if repo.head() is None and not repo.all_commit_shas():
-        raise GitsorError("Depo boş: henüz hiç commit yok.")
+        raise GitexError("Depo boş: henüz hiç commit yok.")
 
     def progress(done: int, total: int) -> None:
         if not quiet and done == total:
@@ -352,7 +352,7 @@ def _parse_cli_date(value: str | None, name: str) -> date | None:
     try:
         return date.fromisoformat(value)
     except ValueError as exc:
-        raise GitsorError(
+        raise GitexError(
             f"--{name} için geçersiz tarih: {value}", hint="Biçim: YYYY-AA-GG"
         ) from exc
 
@@ -369,7 +369,7 @@ def _answer(
     quiet: bool = False,
 ) -> None:
     if mode not in (None, "agent", "simple"):
-        raise GitsorError(f"Geçersiz mod: {mode}", hint="agent ya da simple")
+        raise GitexError(f"Geçersiz mod: {mode}", hint="agent ya da simple")
     since_d, until_d = _parse_cli_date(since, "since"), _parse_cli_date(until, "until")
     session = _open_session(show_context=show_context, quiet=quiet or as_json)
     try:
@@ -417,12 +417,12 @@ def ask(
             as_json=as_json,
             quiet=quiet,
         )
-    except GitsorError as exc:
+    except GitexError as exc:
         raise _fail(exc) from exc
 
 
 _CHAT_HELP = """\
-[bold]gitsor chat[/] — takip soruları önceki bağlamı korur.
+[bold]gitex chat[/] — takip soruları önceki bağlamı korur.
 Komutlar: [bold]/yeni[/] konuşmayı sıfırla · [bold]/mod agent|simple[/] · [bold]/json[/] son cevabın
 kaynakları · [bold]/çık[/] (ya da Ctrl+D)"""
 
@@ -436,9 +436,9 @@ def chat(
     """Etkileşimli oturum; takip soruları bağlamı korur."""
     try:
         if mode not in (None, "agent", "simple"):
-            raise GitsorError(f"Geçersiz mod: {mode}", hint="agent ya da simple")
+            raise GitexError(f"Geçersiz mod: {mode}", hint="agent ya da simple")
         session = _open_session(show_context=show_context, quiet=quiet)
-    except GitsorError as exc:
+    except GitexError as exc:
         raise _fail(exc) from exc
     current_mode = mode or session.config.llm.mode
     last: AgentResult | None = None
@@ -480,7 +480,7 @@ def chat(
                     keep_history=True,
                     on_event=_event_printer(quiet),
                 )
-            except GitsorError as exc:
+            except GitexError as exc:
                 err_console.print(f"[bold red]Hata:[/] {exc}")
                 if exc.hint:
                     err_console.print(f"[dim]İpucu: {exc.hint}[/]")
@@ -504,11 +504,11 @@ def explain(
         if target.startswith("!"):
             iid = target[1:]
             if not iid.isdigit():
-                raise GitsorError(f"Geçersiz MR numarası: {target}")
+                raise GitexError(f"Geçersiz MR numarası: {target}")
             if not state.config(repo).gitlab.enabled:
-                raise GitsorError(
+                raise GitexError(
                     "MR açıklamak için GitLab ayarlanmalı.",
-                    hint="`.gitsor/config.toml` içinde [gitlab] project ayarlayıp `gitsor sync` çalıştırın.",
+                    hint="`.gitex/config.toml` içinde [gitlab] project ayarlayıp `gitex sync` çalıştırın.",
                 )
             question = (
                 f"!{iid} numaralı merge request'i açıkla: ne değiştirdi, neden yapıldı, kim yaptı, "
@@ -517,13 +517,13 @@ def explain(
         else:
             sha = repo.resolve(target)
             if sha is None:
-                raise GitsorError(f"Commit bulunamadı: {target}")
+                raise GitexError(f"Commit bulunamadı: {target}")
             question = (
                 f"{sha[:12]} commit'ini açıkla: ne yaptı, neden yapıldı, kim ne zaman yaptı, "
                 "hangi MR ile geldi ve review'da ne tartışıldı?"
             )
         _answer(question, mode=mode, show_context=show_context, as_json=as_json, quiet=quiet)
-    except GitsorError as exc:
+    except GitexError as exc:
         raise _fail(exc) from exc
 
 
@@ -550,7 +550,7 @@ def when(
                     mr_map[h.commit.sha] = [
                         f"!{m.iid}" for m in search.mrs_for_commit(h.commit.sha)
                     ]
-    except GitsorError as exc:
+    except GitexError as exc:
         raise _fail(exc) from exc
     if as_json:
         payload = [
@@ -608,9 +608,9 @@ def file_cmd(
         repo = state.repo()
         commits = repo.file_history(path)
         if not commits:
-            raise GitsorError(
+            raise GitexError(
                 f"'{path}' için geçmiş bulunamadı.",
-                hint="Yolu repo köküne göre verin; `gitsor ask` ile list_paths kullanılabilir.",
+                hint="Yolu repo köküne göre verin; `gitex ask` ile list_paths kullanılabilir.",
             )
         summary = summarize_file(path, commits)
         if as_json and not llm:
@@ -626,7 +626,7 @@ def file_cmd(
                 path=path,
                 as_json=as_json,
             )
-    except GitsorError as exc:
+    except GitexError as exc:
         raise _fail(exc) from exc
 
 

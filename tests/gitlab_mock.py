@@ -10,7 +10,7 @@ from urllib.parse import parse_qs, urlencode, urlparse
 
 import responses
 
-from gitsor.evals.fixture import FixtureRepo
+from gitex.evals.fixture import FixtureRepo
 
 BASE = "https://gitlab.example.com"
 PROJECT = "grup/proje"

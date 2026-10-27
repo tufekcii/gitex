@@ -5,8 +5,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from gitsor.git.reader import GitRepo
-from gitsor.index.search import FTSSearch
+from gitex.git.reader import GitRepo
+from gitex.index.search import FTSSearch
 
 # 7-40 hex karakter; en az bir rakam içermeli ("defaced", "facade" gibi kelimeleri dışlar).
 _SHA_RE = re.compile(r"(?<![0-9a-zA-Z_/\-.])([0-9a-f]{7,40})(?![0-9a-zA-Z_\-])")

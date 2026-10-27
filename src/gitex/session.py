@@ -10,15 +10,15 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Literal
 
-from gitsor.agent.loop import AgentResult, EventFn, _noop, run_agent, system_prompt
-from gitsor.agent.simple import run_simple
-from gitsor.agent.tools import Toolbox
-from gitsor.config import Config
-from gitsor.git.reader import GitRepo
-from gitsor.index.db import Database
-from gitsor.index.indexer import ProgressFn, ensure_index
-from gitsor.llm.base import LLMProvider, Message
-from gitsor.llm.factory import make_provider
+from gitex.agent.loop import AgentResult, EventFn, _noop, run_agent, system_prompt
+from gitex.agent.simple import run_simple
+from gitex.agent.tools import Toolbox
+from gitex.config import Config
+from gitex.git.reader import GitRepo
+from gitex.index.db import Database
+from gitex.index.indexer import ProgressFn, ensure_index
+from gitex.llm.base import LLMProvider, Message
+from gitex.llm.factory import make_provider
 
 Mode = Literal["agent", "simple"]
 

@@ -1,4 +1,4 @@
-# gitsor
+# gitex
 
 Git geçmişini doğal dilde (Türkçe/İngilizce) sorgulayan komut satırı aracı. Cevaplar
 **ne değişti, ne zaman, kim, neden** sorularını yanıtlar ve her iddiayı commit SHA'sı, tarih ve
@@ -7,7 +7,7 @@ karşı doğrulanır; uydurma bir referans önce modele düzelttirilir, düzelme
 olarak işaretlenir.
 
 ```text
-$ gitsor ask "Login'deki rate limit ne zaman eklendi?"
+$ gitex ask "Login'deki rate limit ne zaman eklendi?"
   → pickaxe(term='RATE_LIMIT')
   → get_commit(sha='6b1285f')
 Rate limit ilk olarak 6b1285f (2026-01-20, Mehmet Demir) ile eklendi: IP başına dakikada 5
@@ -24,7 +24,7 @@ Kaynaklar
 Python 3.12+ ve [uv](https://docs.astral.sh/uv/) gerekir; `git` PATH'te olmalıdır.
 
 ```bash
-uv tool install git+https://gitlab.com/<grup>/gitsor.git   # ya da yerel kopyadan:
+uv tool install git+https://gitlab.com/<grup>/gitex.git   # ya da yerel kopyadan:
 uv tool install .
 ```
 
@@ -32,10 +32,10 @@ uv tool install .
 
 ```bash
 cd projeniz
-gitsor init      # .gitsor/config.toml oluşturur, .gitignore'a .gitsor/ ekler
-gitsor index     # yerel git geçmişini indeksler (artımlı; --rebuild ile sıfırdan)
-gitsor status    # indeks, son senkron ve config özeti
-gitsor ask "payment/service.py son 3 ayda neden bu kadar değişti?"
+gitex init      # .gitex/config.toml oluşturur, .gitignore'a .gitex/ ekler
+gitex index     # yerel git geçmişini indeksler (artımlı; --rebuild ile sıfırdan)
+gitex status    # indeks, son senkron ve config özeti
+gitex ask "payment/service.py son 3 ayda neden bu kadar değişti?"
 ```
 
 `ask` indeks yoksa ya da eskiyse önce otomatik artımlı indeksleme yapar.
@@ -44,15 +44,15 @@ gitsor ask "payment/service.py son 3 ayda neden bu kadar değişti?"
 
 | Komut | Açıklama |
 |---|---|
-| `gitsor init` | `.gitsor/` oluşturur, örnek config yazar, `.gitignore`'a ekler |
-| `gitsor index [--rebuild]` | Yerel git indeksleme (artımlı; rebase/force-push ile kaybolan commit'leri temizler) |
-| `gitsor sync [--full]` | GitLab MR, review yorumu ve issue senkronizasyonu (gerekirse önce index) |
-| `gitsor ask "soru" [--path P] [--since T] [--until T] [--mode simple\|agent] [--show-context] [--json] [-q]` | Soru sor |
-| `gitsor explain <sha\|!MR>` | Bir commit'i ya da MR'ı açıklar |
-| `gitsor when "ifade" [--path P] [-E]` | Pickaxe ile ifadenin ne zaman eklendiği/kaldırıldığı (LLM gerekmez) |
-| `gitsor file <path> [--llm]` | Dosyanın evrim özeti (LLM gerekmez; `--llm` ile anlatım eklenir) |
-| `gitsor chat` | Etkileşimli oturum; takip soruları bağlamı korur (`/yeni`, `/mod`, `/json`, `/çık`) |
-| `gitsor status` | İndeks durumu, son senkron, config özeti |
+| `gitex init` | `.gitex/` oluşturur, örnek config yazar, `.gitignore`'a ekler |
+| `gitex index [--rebuild]` | Yerel git indeksleme (artımlı; rebase/force-push ile kaybolan commit'leri temizler) |
+| `gitex sync [--full]` | GitLab MR, review yorumu ve issue senkronizasyonu (gerekirse önce index) |
+| `gitex ask "soru" [--path P] [--since T] [--until T] [--mode simple\|agent] [--show-context] [--json] [-q]` | Soru sor |
+| `gitex explain <sha\|!MR>` | Bir commit'i ya da MR'ı açıklar |
+| `gitex when "ifade" [--path P] [-E]` | Pickaxe ile ifadenin ne zaman eklendiği/kaldırıldığı (LLM gerekmez) |
+| `gitex file <path> [--llm]` | Dosyanın evrim özeti (LLM gerekmez; `--llm` ile anlatım eklenir) |
+| `gitex chat` | Etkileşimli oturum; takip soruları bağlamı korur (`/yeni`, `/mod`, `/json`, `/çık`) |
+| `gitex status` | İndeks durumu, son senkron, config özeti |
 
 Genel seçenek: `-C/--repo PATH` başka bir dizindeki depoyu hedefler.
 
@@ -64,33 +64,33 @@ Genel seçenek: `-C/--repo PATH` başka bir dizindeki depoyu hedefler.
 ### Örnek sorular
 
 ```bash
-gitsor ask "Login'deki rate limit ne zaman eklendi?"
-gitsor ask "payment/service.py son 3 ayda neden bu kadar değişti?"
-gitsor ask "a1b2c3d commit'i ne yaptı, hangi MR ile geldi, review'da ne tartışıldı?"
-gitsor ask "Kullanıcı silme davranışı ne zaman soft-delete'e döndü ve kim yaptı?"
-gitsor ask "When was the debug_dump helper removed and why?"
-gitsor when "check_rate_limit"
-gitsor explain '!42'
+gitex ask "Login'deki rate limit ne zaman eklendi?"
+gitex ask "payment/service.py son 3 ayda neden bu kadar değişti?"
+gitex ask "a1b2c3d commit'i ne yaptı, hangi MR ile geldi, review'da ne tartışıldı?"
+gitex ask "Kullanıcı silme davranışı ne zaman soft-delete'e döndü ve kim yaptı?"
+gitex ask "When was the debug_dump helper removed and why?"
+gitex when "check_rate_limit"
+gitex explain '!42'
 ```
 
 ## Yapılandırma
 
 Config dosyaları (sonraki öncekini ezer):
 
-1. `~/.config/gitsor/config.toml` (ya da `GITSOR_CONFIG` ile verilen yol)
-2. `<repo>/.gitsor/config.toml` (öncelikli)
-3. Ortam değişkenleri: `GITSOR_LLM_PROVIDER`, `GITSOR_LLM_MODEL`, `GITSOR_LLM_BASE_URL`,
-   `GITSOR_LLM_MODE`, `GITSOR_GITLAB_URL`, `GITSOR_GITLAB_PROJECT`
+1. `~/.config/gitex/config.toml` (ya da `GITEX_CONFIG` ile verilen yol)
+2. `<repo>/.gitex/config.toml` (öncelikli)
+3. Ortam değişkenleri: `GITEX_LLM_PROVIDER`, `GITEX_LLM_MODEL`, `GITEX_LLM_BASE_URL`,
+   `GITEX_LLM_MODE`, `GITEX_GITLAB_URL`, `GITEX_GITLAB_PROJECT`
 
 **Sırlar dosyaya yazılmaz.** LLM anahtarı `llm.api_key_env` ile adı verilen ortam
-değişkeninden (varsayılan `GITSOR_LLM_API_KEY`), GitLab token'ı `GITSOR_GITLAB_TOKEN`'dan okunur.
+değişkeninden (varsayılan `GITEX_LLM_API_KEY`), GitLab token'ı `GITEX_GITLAB_TOKEN`'dan okunur.
 
 ```toml
 [llm]
 provider = "openai_compat"        # veya "anthropic"
 model = "qwen2.5-7b-instruct"
 base_url = "http://localhost:8000/v1"
-api_key_env = "GITSOR_LLM_API_KEY"
+api_key_env = "GITEX_LLM_API_KEY"
 mode = "agent"                    # "agent" (tool-use) veya "simple"
 max_tool_calls = 12
 temperature = 0.1                 # yalnızca openai_compat'a gönderilir
@@ -160,8 +160,8 @@ devredilir (`llm.anthropic_fallbacks = true`, varsayılan). Kapatmak için `fals
 
 ## GitLab
 
-`[gitlab] project` ayarlanıp `GITSOR_GITLAB_TOKEN` (`read_api` yetkili) verildiğinde
-`gitsor sync` merged ve açık MR'ları, sistem dışı review yorumlarını (diff yorumlarında
+`[gitlab] project` ayarlanıp `GITEX_GITLAB_TOKEN` (`read_api` yetkili) verildiğinde
+`gitex sync` merged ve açık MR'ları, sistem dışı review yorumlarını (diff yorumlarında
 dosya/satır bilgisiyle) ve MR'ın kapattığı/ilişkili issue'ları indeksler. Senkron artımlıdır
 (`updated_after`), 429'da `Retry-After`'a uyar. SHA→MR eşlemesi MR commit'leri,
 `merge_commit_sha` ve `squash_commit_sha` üzerinden yapılır. GitLab ayarlı değilse araç yalnızca
@@ -169,7 +169,7 @@ yerel git ile tam çalışır ve GitLab araçları modele hiç sunulmaz.
 
 ## Gizlilik
 
-- İndeks (`.gitsor/index.db`) diff içeriği saklamaz; diff'ler ihtiyaç anında git'ten okunur.
+- İndeks (`.gitex/index.db`) diff içeriği saklamaz; diff'ler ihtiyaç anında git'ten okunur.
 - LLM'e giden tüm araç çıktılarında API anahtarı, token, parola, private key, JWT ve bağlantı
   dizesi kalıpları `[REDACTED]` ile maskelenir.
 - `exclude_paths` ile eşleşen dosyaların diff'i hiç gönderilmez; `send_diffs = false` iken
@@ -181,9 +181,9 @@ yerel git ile tam çalışır ve GitLab araçları modele hiç sunulmaz.
 `evals/` altında deterministik fixture deposu üzerinde soru-cevap çiftleri bulunur:
 
 ```bash
-uv run python -m gitsor.evals                                   # config'teki model
-uv run python -m gitsor.evals --mode simple --model qwen2.5:7b     --base-url http://localhost:11434/v1 --output rapor.json
-uv run python -m gitsor.evals --provider anthropic --model claude-opus-5-5 --case rename
+uv run python -m gitex.evals                                   # config'teki model
+uv run python -m gitex.evals --mode simple --model qwen2.5:7b     --base-url http://localhost:11434/v1 --output rapor.json
+uv run python -m gitex.evals --provider anthropic --model claude-opus-5-5 --case rename
 ```
 
 Skorlayıcı her soru için beklenen SHA'ların doğrulanmış kaynak olarak geçip geçmediğini

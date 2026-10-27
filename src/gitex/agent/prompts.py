@@ -18,7 +18,7 @@ gerekçeyi commit mesajından çıkardığını açıkça söyle ("commit mesaj�
 """
 
 AGENT_SYSTEM = f"""\
-Sen `gitsor`sun: bir git deposunun geçmişi hakkında soruları yanıtlayan bir asistan. \
+Sen `gitex`sun: bir git deposunun geçmişi hakkında soruları yanıtlayan bir asistan. \
 Depoya yalnızca sana verilen araçlarla erişebilirsin; bilmediğin şeyi araçla ara.
 
 Strateji:
@@ -43,7 +43,7 @@ GitLab yapılandırılmamış: MR/issue bilgisi yok. Gerekçeyi yalnızca commit
 """
 
 SIMPLE_SYSTEM = f"""\
-Sen `gitsor`sun: bir git deposunun geçmişi hakkında soruları yanıtlayan bir asistan. \
+Sen `gitex`sun: bir git deposunun geçmişi hakkında soruları yanıtlayan bir asistan. \
 Aşağıda, soruyla ilgili olabilecek commit'ler ve (varsa) merge request'ler verildi. \
 Yalnızca bu bağlamı kullan; bağlamda olmayan bilgiyi uydurma.
 

@@ -4,12 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from gitsor.agent.prompts import EXTRACT_SYSTEM
-from gitsor.config import Config
-from gitsor.evals.__main__ import main as eval_main
-from gitsor.evals.fixture import FixtureRepo, build_fixture_repo
-from gitsor.evals.runner import Case, CaseResult, default_questions_path, load_cases, run_evals
-from gitsor.llm.base import LLMResponse, Message, ToolSpec
+from gitex.agent.prompts import EXTRACT_SYSTEM
+from gitex.config import Config
+from gitex.evals.__main__ import main as eval_main
+from gitex.evals.fixture import FixtureRepo, build_fixture_repo
+from gitex.evals.runner import Case, CaseResult, default_questions_path, load_cases, run_evals
+from gitex.llm.base import LLMResponse, Message, ToolSpec
 
 QUESTIONS = Path(__file__).resolve().parents[1] / "evals" / "questions.toml"
 

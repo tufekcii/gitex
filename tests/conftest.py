@@ -6,10 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from gitsor.evals.fixture import FixtureRepo, build_fixture_repo
-from gitsor.git.reader import GitRepo
-from gitsor.index.db import Database
-from gitsor.index.indexer import index_repo, open_index
+from gitex.evals.fixture import FixtureRepo, build_fixture_repo
+from gitex.git.reader import GitRepo
+from gitex.index.db import Database
+from gitex.index.indexer import index_repo, open_index
 
 
 @pytest.fixture(autouse=True)
@@ -18,16 +18,16 @@ def _isolated_env(
 ) -> None:
     """Testler kullanıcının gerçek config'ini ve sırlarını görmesin."""
     cfg_dir = tmp_path_factory.mktemp("usercfg")
-    monkeypatch.setenv("GITSOR_CONFIG", str(cfg_dir / "config.toml"))
+    monkeypatch.setenv("GITEX_CONFIG", str(cfg_dir / "config.toml"))
     for name in (
-        "GITSOR_GITLAB_TOKEN",
-        "GITSOR_LLM_API_KEY",
-        "GITSOR_LLM_PROVIDER",
-        "GITSOR_LLM_MODEL",
-        "GITSOR_LLM_BASE_URL",
-        "GITSOR_LLM_MODE",
-        "GITSOR_GITLAB_URL",
-        "GITSOR_GITLAB_PROJECT",
+        "GITEX_GITLAB_TOKEN",
+        "GITEX_LLM_API_KEY",
+        "GITEX_LLM_PROVIDER",
+        "GITEX_LLM_MODEL",
+        "GITEX_LLM_BASE_URL",
+        "GITEX_LLM_MODE",
+        "GITEX_GITLAB_URL",
+        "GITEX_GITLAB_PROJECT",
     ):
         monkeypatch.delenv(name, raising=False)
 

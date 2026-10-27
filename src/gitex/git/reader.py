@@ -12,8 +12,8 @@ from collections.abc import Iterable, Iterator, Sequence
 from datetime import date, datetime, timedelta, timezone, tzinfo
 from pathlib import Path
 
-from gitsor.errors import GitCommandError, NotAGitRepoError
-from gitsor.git.models import (
+from gitex.errors import GitCommandError, NotAGitRepoError
+from gitex.git.models import (
     BlameLine,
     Commit,
     DiffText,
@@ -23,7 +23,7 @@ from gitsor.git.models import (
     PickaxeHit,
     Ref,
 )
-from gitsor.git.pathmatch import has_glob, match_any, match_path
+from gitex.git.pathmatch import has_glob, match_any, match_path
 
 _REC = "\x1e"
 _SEP = "\x1f"

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from gitsor.llm.base import LLMResponse, Message, ToolCall, ToolSpec
+from gitex.llm.base import LLMResponse, Message, ToolCall, ToolSpec
 
 Step = LLMResponse | Callable[[list[Message], list[ToolSpec] | None], LLMResponse]
 

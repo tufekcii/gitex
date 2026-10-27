@@ -35,7 +35,7 @@ class _Builder:
     def __init__(self, path: Path) -> None:
         self.path = path
         self.shas: dict[str, str] = {}
-        cfg = tempfile.NamedTemporaryFile(prefix="gitsor-gitconfig-", delete=False)  # noqa: SIM115
+        cfg = tempfile.NamedTemporaryFile(prefix="gitex-gitconfig-", delete=False)  # noqa: SIM115
         cfg.close()
         self._global_cfg = cfg.name
         self.git("init", "-q", "-b", "main")

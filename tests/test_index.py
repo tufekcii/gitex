@@ -3,11 +3,11 @@ from __future__ import annotations
 import subprocess
 from datetime import date
 
-from gitsor.evals.fixture import FixtureRepo
-from gitsor.git.reader import GitRepo
-from gitsor.index.db import SCHEMA_VERSION, Database
-from gitsor.index.indexer import ensure_index, index_repo, is_stale, open_index
-from gitsor.index.search import FTSSearch, SearchQuery
+from gitex.evals.fixture import FixtureRepo
+from gitex.git.reader import GitRepo
+from gitex.index.db import SCHEMA_VERSION, Database
+from gitex.index.indexer import ensure_index, index_repo, is_stale, open_index
+from gitex.index.search import FTSSearch, SearchQuery
 
 
 def _git(repo: GitRepo, *args: str) -> None:

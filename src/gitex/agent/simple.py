@@ -15,8 +15,8 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Any
 
-from gitsor.agent.citations import extract_mrs, extract_shas
-from gitsor.agent.loop import (
+from gitex.agent.citations import extract_mrs, extract_shas
+from gitex.agent.loop import (
     AgentResult,
     EventFn,
     ToolCallLog,
@@ -25,11 +25,11 @@ from gitsor.agent.loop import (
     finalize,
     system_prompt,
 )
-from gitsor.agent.prompts import EXTRACT_SYSTEM, SIMPLE_SYSTEM
-from gitsor.agent.tools import Toolbox, _parse_date
-from gitsor.git.pathmatch import has_glob
-from gitsor.llm.base import LLMProvider, Message
-from gitsor.textnorm import fold, tokens
+from gitex.agent.prompts import EXTRACT_SYSTEM, SIMPLE_SYSTEM
+from gitex.agent.tools import Toolbox, _parse_date
+from gitex.git.pathmatch import has_glob
+from gitex.llm.base import LLMProvider, Message
+from gitex.textnorm import fold, tokens
 
 _CODE_FENCE = re.compile(r"`([^`]+)`")
 _QUOTED = re.compile(r"[\"“”]([^\"“”]{2,80})[\"“”]")

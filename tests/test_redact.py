@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from gitsor.redact import MASK, redact
+from gitex.redact import MASK, redact
 
 # Sahte değerler parça parça kurulur; kaynakta gerçek bir anahtar kalıbı durmaz.
 AWS = "AKIA" + "ABCDEFGHIJKLMNOP"

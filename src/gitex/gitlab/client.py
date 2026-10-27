@@ -1,4 +1,4 @@
-"""python-gitlab sarmalayıcı: yalnızca gitsor'un ihtiyaç duyduğu okuma çağrıları, sade dict'ler döner."""
+"""python-gitlab sarmalayıcı: yalnızca gitex'un ihtiyaç duyduğu okuma çağrıları, sade dict'ler döner."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
-from gitsor.config import GitLabConfig
-from gitsor.errors import GitLabError
+from gitex.config import GitLabConfig
+from gitex.errors import GitLabError
 
 WANTED_STATES = frozenset({"merged", "opened"})
 
@@ -66,7 +66,7 @@ class GitLabClient:
         if isinstance(exc, gitlab.GitlabAuthenticationError):
             return GitLabError(
                 "GitLab kimlik doğrulaması başarısız.",
-                hint="GITSOR_GITLAB_TOKEN ortam değişkenine `read_api` yetkili bir token verin.",
+                hint="GITEX_GITLAB_TOKEN ortam değişkenine `read_api` yetkili bir token verin.",
             )
         if (
             isinstance(exc, gitlab.GitlabGetError | gitlab.GitlabListError)

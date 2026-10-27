@@ -8,9 +8,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from gitsor.gitlab.client import WANTED_STATES, GitLabClient, MRData
-from gitsor.index.db import Database
-from gitsor.textnorm import fold
+from gitex.gitlab.client import WANTED_STATES, GitLabClient, MRData
+from gitex.index.db import Database
+from gitex.textnorm import fold
 
 SyncProgressFn = Callable[[int], None]
 

@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import pytest
 
-from gitsor.agent.citations import WARNING, extract_mrs, extract_shas
-from gitsor.agent.loop import run_agent
-from gitsor.agent.simple import rule_based_plan, run_simple
-from gitsor.agent.tools import Toolbox
-from gitsor.config import Config
-from gitsor.evals.fixture import FAKE_API_KEY, FixtureRepo
-from gitsor.git.reader import GitRepo
-from gitsor.index.db import Database
+from gitex.agent.citations import WARNING, extract_mrs, extract_shas
+from gitex.agent.loop import run_agent
+from gitex.agent.simple import rule_based_plan, run_simple
+from gitex.agent.tools import Toolbox
+from gitex.config import Config
+from gitex.evals.fixture import FAKE_API_KEY, FixtureRepo
+from gitex.git.reader import GitRepo
+from gitex.index.db import Database
 from tests.fakes import ScriptedProvider, call, text
 
 

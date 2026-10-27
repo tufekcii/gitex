@@ -12,7 +12,7 @@ Her satır: tarih — karar — gerekçe.
 - 2026-10-27 — İndeks `--all` (stash hariç) ile tüm dalları/tag'leri kapsar; artımlılık "bilinen SHA kümesi" farkıyla yapılır, böylece rebase/force-push ile erişilemez olan commit'ler de tespit edilip silinir. Tazelik kontrolü ref parmak izi ile.
 - 2026-10-27 — Merge commit'lerin dosya değişiklikleri ilk parent'a göre (`--diff-merges=first-parent`) — merge'in hedef dala getirdiği değişikliği gösterir.
 - 2026-10-27 — Filtrelerde tarih olarak author date kullanılır (cevaplarda gösterilen tarih ile tutarlı).
-- 2026-10-27 — Fixture deposu paket içinde (`gitsor.evals.fixture`): testler ve Faz 5 değerlendirmesi aynı deterministik depoyu kullanır.
+- 2026-10-27 — Fixture deposu paket içinde (`gitex.evals.fixture`): testler ve Faz 5 değerlendirmesi aynı deterministik depoyu kullanır.
 - 2026-10-27 — Bağımlılık: `openai` — OpenAI uyumlu uç noktalar (vLLM, Ollama, OpenAI) için resmi SDK; `base_url` ile hepsine çalışır.
 - 2026-10-27 — Bağımlılık: `anthropic` — Claude API native tool use için resmi SDK.
 - 2026-10-27 — Anthropic adaptörüne `temperature` gönderilmez (güncel Claude API örnekleme parametrelerini 400 ile reddediyor); `tool_choice` gönderilmez (zorlanmış seçim güncel modellerde desteklenmiyor). Varsayılan model `claude-opus-5-5`, `max_tokens` 16000.

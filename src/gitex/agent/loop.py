@@ -6,16 +6,16 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from gitsor.agent.citations import CitationReport, CitationVerifier, mark_unverified
-from gitsor.agent.prompts import (
+from gitex.agent.citations import CitationReport, CitationVerifier, mark_unverified
+from gitex.agent.prompts import (
     AGENT_SYSTEM,
     BUDGET_EXHAUSTED,
     GITLAB_HINT,
     NO_GITLAB_HINT,
     correction_message,
 )
-from gitsor.agent.tools import Toolbox
-from gitsor.llm.base import LLMProvider, Message
+from gitex.agent.tools import Toolbox
+from gitex.llm.base import LLMProvider, Message
 
 # (olay türü, veri) — CLI bunları sade satırlar olarak gösterir.
 EventFn = Callable[[str, dict[str, Any]], None]

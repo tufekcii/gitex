@@ -7,12 +7,12 @@ from typing import Any
 
 import pytest
 
-from gitsor.config import LLMConfig
-from gitsor.errors import ConfigError, LLMError
-from gitsor.llm.anthropic import AnthropicProvider, to_anthropic_messages, to_anthropic_tools
-from gitsor.llm.base import Message, ToolCall, ToolSpec
-from gitsor.llm.factory import make_provider
-from gitsor.llm.openai_compat import OpenAICompatProvider, parse_tool_calls, to_openai_messages
+from gitex.config import LLMConfig
+from gitex.errors import ConfigError, LLMError
+from gitex.llm.anthropic import AnthropicProvider, to_anthropic_messages, to_anthropic_tools
+from gitex.llm.base import Message, ToolCall, ToolSpec
+from gitex.llm.factory import make_provider
+from gitex.llm.openai_compat import OpenAICompatProvider, parse_tool_calls, to_openai_messages
 
 SPEC = ToolSpec("pickaxe", "desc", {"type": "object", "properties": {"term": {"type": "string"}}})
 

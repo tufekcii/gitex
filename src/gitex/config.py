@@ -1,4 +1,4 @@
-"""Config yükleme: kullanıcı (`~/.config/gitsor/config.toml`) + repo (`.gitsor/config.toml`) + env.
+"""Config yükleme: kullanıcı (`~/.config/gitex/config.toml`) + repo (`.gitex/config.toml`) + env.
 
 Öncelik (düşükten yükseğe): varsayılanlar → kullanıcı config'i → repo config'i → ortam değişkenleri.
 Sırlar (API anahtarı, GitLab token'ı) yalnızca ortam değişkenlerinden okunur, dosyaya yazılmaz.
@@ -13,12 +13,12 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
-from gitsor.errors import ConfigError
+from gitex.errors import ConfigError
 
-GITSOR_DIR = ".gitsor"
+GITEX_DIR = ".gitex"
 CONFIG_FILE = "config.toml"
 INDEX_FILE = "index.db"
-GITLAB_TOKEN_ENV = "GITSOR_GITLAB_TOKEN"
+GITLAB_TOKEN_ENV = "GITEX_GITLAB_TOKEN"
 
 
 class _Section(BaseModel):
@@ -29,7 +29,7 @@ class LLMConfig(_Section):
     provider: Literal["openai_compat", "anthropic"] = "openai_compat"
     model: str = "qwen2.5-7b-instruct"
     base_url: str | None = None
-    api_key_env: str = "GITSOR_LLM_API_KEY"
+    api_key_env: str = "GITEX_LLM_API_KEY"
     mode: Literal["agent", "simple"] = "agent"
     max_tool_calls: int = Field(default=12, ge=1, le=100)
     # Yalnızca openai_compat'a gönderilir; güncel Claude API örnekleme parametrelerini kabul etmez.
@@ -83,24 +83,24 @@ class Config(_Section):
 
 
 _ENV_OVERRIDES: dict[str, tuple[str, str]] = {
-    "GITSOR_LLM_PROVIDER": ("llm", "provider"),
-    "GITSOR_LLM_MODEL": ("llm", "model"),
-    "GITSOR_LLM_BASE_URL": ("llm", "base_url"),
-    "GITSOR_LLM_MODE": ("llm", "mode"),
-    "GITSOR_GITLAB_URL": ("gitlab", "url"),
-    "GITSOR_GITLAB_PROJECT": ("gitlab", "project"),
+    "GITEX_LLM_PROVIDER": ("llm", "provider"),
+    "GITEX_LLM_MODEL": ("llm", "model"),
+    "GITEX_LLM_BASE_URL": ("llm", "base_url"),
+    "GITEX_LLM_MODE": ("llm", "mode"),
+    "GITEX_GITLAB_URL": ("gitlab", "url"),
+    "GITEX_GITLAB_PROJECT": ("gitlab", "project"),
 }
 
 
 def user_config_path() -> Path:
-    if env := os.environ.get("GITSOR_CONFIG"):
+    if env := os.environ.get("GITEX_CONFIG"):
         return Path(env)
     base = os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
-    return Path(base) / "gitsor" / CONFIG_FILE
+    return Path(base) / "gitex" / CONFIG_FILE
 
 
 def repo_dir(repo_root: Path) -> Path:
-    return repo_root / GITSOR_DIR
+    return repo_root / GITEX_DIR
 
 
 def index_path(repo_root: Path) -> Path:
@@ -150,14 +150,14 @@ def load_config(repo_root: Path | None = None, *, use_env: bool = True) -> Confi
 
 
 SAMPLE_CONFIG = """\
-# gitsor yapılandırması. Sırlar (API anahtarı, token) bu dosyaya YAZILMAZ;
+# gitex yapılandırması. Sırlar (API anahtarı, token) bu dosyaya YAZILMAZ;
 # ortam değişkenlerinden okunur.
 
 [llm]
 provider = "openai_compat"        # veya "anthropic"
 model = "qwen2.5-7b-instruct"
 base_url = "http://localhost:8000/v1"
-api_key_env = "GITSOR_LLM_API_KEY"
+api_key_env = "GITEX_LLM_API_KEY"
 mode = "agent"                    # "agent" (tool-use) veya "simple"
 max_tool_calls = 12
 temperature = 0.1
@@ -169,5 +169,5 @@ exclude_paths = ["*.env", "*.pem", "*.key", "secrets/**", "*.lock"]
 
 [gitlab]
 url = "https://gitlab.com"
-# project = "grup/proje"          # token: GITSOR_GITLAB_TOKEN ortam değişkeni
+# project = "grup/proje"          # token: GITEX_GITLAB_TOKEN ortam değişkeni
 """

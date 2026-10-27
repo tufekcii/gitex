@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from gitsor.config import LLMConfig
-from gitsor.errors import ConfigError
-from gitsor.llm.base import LLMProvider
+from gitex.config import LLMConfig
+from gitex.errors import ConfigError
+from gitex.llm.base import LLMProvider
 
 
 def make_provider(cfg: LLMConfig) -> LLMProvider:
     if cfg.provider == "openai_compat":
-        from gitsor.llm.openai_compat import OpenAICompatProvider
+        from gitex.llm.openai_compat import OpenAICompatProvider
 
         if not cfg.base_url:
             raise ConfigError(
@@ -19,7 +19,7 @@ def make_provider(cfg: LLMConfig) -> LLMProvider:
             )
         return OpenAICompatProvider(cfg)
     if cfg.provider == "anthropic":
-        from gitsor.llm.anthropic import AnthropicProvider
+        from gitex.llm.anthropic import AnthropicProvider
 
         return AnthropicProvider(cfg)
     raise ConfigError(f"Bilinmeyen LLM sağlayıcısı: {cfg.provider}")
