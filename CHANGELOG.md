@@ -6,6 +6,10 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esaslıdır; sü
 ## [Yayınlanmadı]
 
 ### Eklendi
+- Yükleniyor göstergesi: kullanıcı beklerken her an ne yapıldığını ve geçen süreyi gösteren gitex'e
+  özel tek satırlık gösterge (●───○───○). Hazırlık, indeks güncelleme (commit sayısıyla), model
+  düşünürken, araç çalışırken, kaynak düzeltme, `when`, `file`, `sync`, `doctor` ve sihirbazdaki
+  model listesi sırasında açık; bitince silinir, stderr'e yazar ve terminal değilse çizilmez.
 - İki dilli arayüz (Türkçe / English): kurulum betiği ve `gitex setup` önce dili numaralı olarak
   sorar; mesajlar, tablolar, sorular, hatalar ve `--help` metinleri seçilen dilde olur.
   `gitex config set ui.language en|tr` ile değiştirilir; varsayılan işletim sisteminin dilidir.

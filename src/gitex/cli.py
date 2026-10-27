@@ -33,7 +33,7 @@ from gitex.llm.base import LLMProvider, LLMResponse, Message, ToolSpec
 from gitex.llm.factory import make_provider
 from gitex.manage import auth_app, config_app, doctor, setup
 from gitex.session import Session
-from gitex.ui import console, err_console, fail, state
+from gitex.ui import Activity, console, err_console, fail, state
 
 apply_to_typer()
 
@@ -257,15 +257,16 @@ def sync(
         with open_index(repo) as db:
             if is_stale(repo, db):
                 run_index(repo, db, quiet=quiet)
-            client = make_gitlab_client(cfg)
+            with Activity(
+                t("GitLab'dan MR'lar alınıyor…", "Fetching merge requests from GitLab…"),
+                enabled=not quiet,
+            ) as activity:
+                client = make_gitlab_client(cfg)
 
-            def _progress(n: int) -> None:
-                if not quiet and n % 50 == 0:
-                    err_console.print(
-                        t("[dim]  {n} MR senkronlandı…[/]", "[dim]  {n} MRs synced…[/]", n=n)
-                    )
+                def _progress(n: int) -> None:
+                    activity.update(detail=f"{n} MR")
 
-            stats = sync_gitlab(client, db, full=full, progress=_progress)
+                stats = sync_gitlab(client, db, full=full, progress=_progress)
     except GitexError as exc:
         raise _fail(exc) from exc
     if not quiet:
@@ -397,8 +398,19 @@ def _make_provider(cfg: Config) -> LLMProvider:
 provider_factory: Callable[[Config], LLMProvider] = _make_provider
 
 
-def _event_printer(quiet: bool) -> EventFn:
+def _thinking() -> str:
+    return t("Model düşünüyor…", "Thinking…")
+
+
+def _event_printer(quiet: bool, activity: Activity | None = None) -> EventFn:
     def on_event(kind: str, data: dict[str, Any]) -> None:
+        if activity is not None:
+            if kind in ("llm_call", "tool_result"):
+                activity.update(_thinking())
+            elif kind == "tool_call":
+                activity.update(t("Geçmiş taranıyor…", "Searching history…"), detail=data["name"])
+            elif kind == "citation_retry":
+                activity.update(t("Kaynaklar düzeltiliyor…", "Fixing sources…"))
         if quiet:
             return
         if kind == "tool_call":
@@ -436,7 +448,9 @@ def _event_printer(quiet: bool) -> EventFn:
     return on_event
 
 
-def _open_session(*, show_context: bool, quiet: bool) -> Session:
+def _open_session(*, show_context: bool, quiet: bool, activity: Activity | None = None) -> Session:
+    if activity is not None:
+        activity.update(t("Depo ve model hazırlanıyor…", "Preparing the repository and model…"))
     repo = state.repo()
     cfg = state.config(repo)
     if repo.head() is None and not repo.all_commit_shas():
@@ -445,6 +459,10 @@ def _open_session(*, show_context: bool, quiet: bool) -> Session:
         )
 
     def progress(done: int, total: int) -> None:
+        if activity is not None:
+            activity.update(
+                t("İndeks güncelleniyor…", "Updating the index…"), detail=f"{done}/{total} commit"
+            )
         if not quiet and done == total:
             err_console.print(
                 t(
@@ -518,18 +536,22 @@ def _answer(
 ) -> None:
     _check_mode(mode)
     since_d, until_d = _parse_cli_date(since, "since"), _parse_cli_date(until, "until")
-    session = _open_session(show_context=show_context, quiet=quiet or as_json)
-    try:
-        result = session.ask(
-            question,
-            mode=mode,  # type: ignore[arg-type]
-            path=path,
-            since=since_d,
-            until=until_d,
-            on_event=_event_printer(quiet or as_json),
+    # Gösterge ilk anda açılır: model kütüphanesinin yüklenmesi bile birkaç saniye sürebilir.
+    with Activity(t("Hazırlanıyor…", "Getting ready…")) as activity:
+        session = _open_session(
+            show_context=show_context, quiet=quiet or as_json, activity=activity
         )
-    finally:
-        session.close()
+        try:
+            result = session.ask(
+                question,
+                mode=mode,  # type: ignore[arg-type]
+                path=path,
+                since=since_d,
+                until=until_d,
+                on_event=_event_printer(quiet or as_json, activity),
+            )
+        finally:
+            session.close()
     _print_result(result, as_json=as_json)
 
 
@@ -618,7 +640,8 @@ def chat(
 ) -> None:
     try:
         _check_mode(mode)
-        session = _open_session(show_context=show_context, quiet=quiet)
+        with Activity(t("Hazırlanıyor…", "Getting ready…")) as activity:
+            session = _open_session(show_context=show_context, quiet=quiet, activity=activity)
     except GitexError as exc:
         raise _fail(exc) from exc
     current_mode = mode or session.config.llm.mode
@@ -661,12 +684,13 @@ def chat(
                 console.print(t("[yellow]Bilinmeyen komut.[/]", "[yellow]Unknown command.[/]"))
                 continue
             try:
-                last = session.ask(
-                    line,
-                    mode=current_mode,  # type: ignore[arg-type]
-                    keep_history=True,
-                    on_event=_event_printer(quiet),
-                )
+                with Activity(_thinking()) as activity:
+                    last = session.ask(
+                        line,
+                        mode=current_mode,  # type: ignore[arg-type]
+                        keep_history=True,
+                        on_event=_event_printer(quiet, activity),
+                    )
             except GitexError as exc:
                 err_console.print(t("[bold red]Hata:[/] {e}", "[bold red]Error:[/] {e}", e=exc))
                 if exc.hint:
@@ -773,16 +797,20 @@ def when(
 ) -> None:
     try:
         repo = state.repo()
-        hits = repo.pickaxe(expression, regex=regex, path=path, limit=limit)
-        mr_map: dict[str, list[str]] = {}
-        cfg = state.config(repo)
-        if cfg.gitlab.enabled and index_path(repo.root).exists():
-            with Database(index_path(repo.root)) as db:
-                search = FTSSearch(db)
-                for h in hits:
-                    mr_map[h.commit.sha] = [
-                        f"!{m.iid}" for m in search.mrs_for_commit(h.commit.sha)
-                    ]
+        with Activity(
+            t("Geçmiş taranıyor…", "Searching history…"), enabled=not as_json
+        ) as activity:
+            activity.update(detail=expression)
+            hits = repo.pickaxe(expression, regex=regex, path=path, limit=limit)
+            mr_map: dict[str, list[str]] = {}
+            cfg = state.config(repo)
+            if cfg.gitlab.enabled and index_path(repo.root).exists():
+                with Database(index_path(repo.root)) as db:
+                    search = FTSSearch(db)
+                    for h in hits:
+                        mr_map[h.commit.sha] = [
+                            f"!{m.iid}" for m in search.mrs_for_commit(h.commit.sha)
+                        ]
     except GitexError as exc:
         raise _fail(exc) from exc
     if as_json:
@@ -869,7 +897,10 @@ def file_cmd(
 ) -> None:
     try:
         repo = state.repo()
-        commits = repo.file_history(path)
+        with Activity(
+            t("Dosya geçmişi okunuyor…", "Reading the file's history…"), enabled=not as_json
+        ):
+            commits = repo.file_history(path)
         if not commits:
             raise GitexError(
                 t("'{p}' için geçmiş bulunamadı.", "No history found for '{p}'.", p=path),

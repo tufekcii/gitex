@@ -49,3 +49,4 @@ Her satır: tarih — karar — gerekçe.
 - 2026-10-27 — Modele giden metinler (araç çıktıları, sistem promptları) çevrilmez; model cevabı sorunun dilinde verir. Soruya eklenen metinler (`explain` sorusu, kapsam notu) arayüz dilindedir ki cevap da o dilde gelsin.
 - 2026-10-27 — Makine-okunur çıktılar dilden bağımsızdır (`when --json` `kind`: added/removed/changed).
 - 2026-10-27 — install.ps1 tek BOM'lu UTF-8 ve CRLF olmalı; çift BOM parametreleri sessizce bozuyordu (sözdizimi denetimi yakalamadı). `tests/test_install_scripts.py` bayt düzeyinde denetler.
+- 2026-10-28 — Yükleniyor göstergesi `rich.live.Live` + `Spinner` ile (`gitex.ui.Activity`); yeni bağımlılık yok. stderr'e yazar, `transient` olduğu için iş bitince silinir, terminal değilse kapalıdır. Rich aynı anda tek Live'a izin verdiği için indeksin kendi ilerleme çubuğu (`run_index`) göstergenin dışında çalıştırılır.

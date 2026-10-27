@@ -39,7 +39,7 @@ from gitex.errors import ConfigError, GitexError
 from gitex.git.reader import GitRepo
 from gitex.i18n import LANG_NAMES, LANGS, Lang, t
 from gitex.llm.catalog import PRESETS, ProviderPreset, is_free, list_models, preset_for
-from gitex.ui import console, err_console, fail, state
+from gitex.ui import Activity, console, err_console, fail, state
 
 Scope = Literal["global", "repo"]
 
@@ -770,7 +770,7 @@ def _ask_api_key(preset: ProviderPreset, llm: LLMConfig, base_url: str | None) -
 
 
 def _pick_model(preset: ProviderPreset, llm: LLMConfig) -> str:
-    with console.status(t("Model listesi alınıyor…", "Fetching the model list…")):
+    with Activity(t("Model listesi alınıyor…", "Fetching the model list…")):
         try:
             ids = model_lister(llm)
             error = None
@@ -1171,7 +1171,8 @@ def doctor(
         False, "--offline", help=t("Ağ bağlantısı testlerini atla.", "Skip network checks.")
     ),
 ) -> None:
-    checks = run_checks(offline=offline)
+    with Activity(t("Kontrol ediliyor…", "Checking…")):
+        checks = run_checks(offline=offline)
     table = Table(show_header=False, box=None, pad_edge=False)
     table.add_column(width=2)
     table.add_column(style="bold")
