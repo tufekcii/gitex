@@ -30,3 +30,6 @@ Her satır: tarih — karar — gerekçe.
 - 2026-10-27 — `gitlab.project` değişirse GitLab verisi sıfırdan senkronlanır.
 - 2026-10-27 — SHA→MR eşlemesi: MR commit listesi + `merge_commit_sha` + `squash_commit_sha`. Rebase ile merge edilen MR'larda main'deki SHA'lar MR listesindekilerden farklı olabilir; bu durumda eşleme yalnızca merge/squash commit'i üzerinden yapılabilir (bilinen sınırlama).
 - 2026-10-27 — chat geçmişi büyüyünce yerinde budanmaz; son turların özetiyle yeni konuşma açılır (bazı sağlayıcılar düzenlenmiş geçmişi reddeder). Simple mod durumsuz olduğundan takip sorularına son 3 tur metin olarak eklenir.
+- 2026-10-27 — Değerlendirme setinde beklenen commit'ler fixture adım adlarıyla yazılır ve çalışma anında SHA'ya çözülür (fixture deterministik; test bunu doğrular). Git'in varsayılan nesne formatı değişse bile set geçerli kalır.
+- 2026-10-27 — Değerlendirme yalnızca yerel git verisiyle çalışır; GitLab senaryoları `responses` (dev bağımlılığı) gerektirdiği için testlerde kalır.
+- 2026-10-27 — `Session.open` önce LLM sağlayıcısını kurar, sonra indeksi açar: config hatası indeks dosyasını açık bırakmaz (Windows'ta dosya kilidi).

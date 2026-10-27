@@ -57,9 +57,10 @@ class Session:
         provider_factory: Callable[[Config], LLMProvider] | None = None,
         progress: ProgressFn | None = None,
     ) -> Session:
-        db, _stats = ensure_index(repo, progress=progress)
+        # Sağlayıcı önce kurulur: config hatası indeksi açık bırakmasın.
         if provider is None:
             provider = (provider_factory or (lambda c: make_provider(c.llm)))(config)
+        db, _stats = ensure_index(repo, progress=progress)
         return cls(repo=repo, config=config, db=db, provider=provider)
 
     def close(self) -> None:

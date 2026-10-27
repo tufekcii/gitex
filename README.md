@@ -176,6 +176,21 @@ yerel git ile tam çalışır ve GitLab araçları modele hiç sunulmaz.
   araçlar diff ve kod satırı döndürmez.
 - `--show-context` ile gönderilecek bağlam önceden incelenebilir.
 
+## Değerlendirme
+
+`evals/` altında deterministik fixture deposu üzerinde soru-cevap çiftleri bulunur:
+
+```bash
+uv run python -m gitsor.evals                                   # config'teki model
+uv run python -m gitsor.evals --mode simple --model qwen2.5:7b     --base-url http://localhost:11434/v1 --output rapor.json
+uv run python -m gitsor.evals --provider anthropic --model claude-opus-5-5 --case rename
+```
+
+Skorlayıcı her soru için beklenen SHA'ların doğrulanmış kaynak olarak geçip geçmediğini
+(kaynak isabeti), doğrulanamayan referans oranını (uydurma), beklenen ifadelerin cevapta
+geçmesini ve cevabı olmayan sorularda "bulamadım" doğruluğunu raporlar. Soru seti:
+[evals/questions.toml](evals/questions.toml). Farklı modelleri karşılaştırmak için kullanılır.
+
 ## Geliştirme
 
 ```bash

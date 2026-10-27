@@ -1,0 +1,117 @@
+# gitsor değerlendirme seti — `gitsor.evals.fixture` deposu üzerinde.
+#
+# `expected`: cevapta kaynak olarak geçmesi gereken commit'ler. Değerler fixture senaryosundaki
+# adım adlarıdır (`build_fixture_repo` içindeki `b.commit("<ad>", ...)`); skorlayıcı bunları
+# çalışma anında tam SHA'lara çözer ve raporda SHA'ları gösterir. Fixture deterministik
+# olduğundan SHA'lar her makinede aynıdır; adlar yalnızca okunabilirlik içindir.
+# `expect_text`: cevapta geçmesi beklenen ifadelerden en az biri (büyük/küçük harf duyarsız).
+# `expect_not_found`: depoda cevabı olmayan soru; model "bulamadım" demeli ve SHA uydurmamalı.
+# Soru metnindeki `{sha:<ad>}` kısa SHA ile değiştirilir.
+
+[[case]]
+id = "rate-limit-added"
+question = "Login'deki rate limit ne zaman eklendi?"
+expected = ["rate_limit"]
+expect_text = ["2026-01-20"]
+
+[[case]]
+id = "rate-limit-raised"
+question = "Rate limit değeri ne zaman 10'a çıkarıldı ve neden?"
+expected = ["rate_limit_10"]
+expect_text = ["NAT", "kurumsal"]
+
+[[case]]
+id = "rate-limit-history"
+question = "RATE_LIMIT sabitinin geçmişini anlat: ilk ne zaman eklendi, sonra nasıl değişti?"
+expected = ["rate_limit", "rate_limit_10"]
+
+[[case]]
+id = "debug-dump-lifecycle"
+question = "`debug_dump` fonksiyonu ne zaman eklendi, ne zaman kaldırıldı?"
+expected = ["debug_add", "debug_remove"]
+
+[[case]]
+id = "debug-dump-removed-en"
+question = "When was the debug_dump helper removed, and who removed it?"
+expected = ["debug_remove"]
+expect_text = ["Mehmet"]
+
+[[case]]
+id = "soft-delete-when-who"
+question = "Kullanıcı silme davranışı ne zaman soft-delete'e döndü ve kim yaptı?"
+expected = ["soft_delete"]
+expect_text = ["Zeynep"]
+
+[[case]]
+id = "soft-delete-why"
+question = "Kullanıcılar neden artık fiziksel olarak silinmiyor?"
+expected = ["soft_delete"]
+expect_text = ["KVKK", "denetim"]
+
+[[case]]
+id = "soft-delete-release"
+question = "Soft-delete değişikliği ilk hangi sürümle (tag) yayınlandı?"
+expected = ["soft_delete"]
+expect_text = ["v1.0"]
+
+[[case]]
+id = "refund-commit"
+question = "İade (refund) desteği hangi commit ile geldi?"
+expected = ["refund"]
+
+[[case]]
+id = "refund-merge"
+question = "Refund özelliği main dalına ne zaman merge edildi?"
+expected = ["merge_refund"]
+expect_text = ["2026-02-07"]
+
+[[case]]
+id = "payment-file-history"
+question = "payment/service.py dosyası nasıl evrildi? Önemli değişiklikleri sırala."
+expected = ["payment", "retry"]
+
+[[case]]
+id = "retry-en"
+question = "Who added retry logic for payment gateway timeouts, and when?"
+expected = ["retry"]
+expect_text = ["Zeynep"]
+
+[[case]]
+id = "rename"
+question = "utils.py ne zaman ve hangi adla yeniden adlandırıldı?"
+expected = ["rename"]
+expect_text = ["helpers.py"]
+
+[[case]]
+id = "legacy-delete"
+question = "legacy modülü ne zaman silindi?"
+expected = ["legacy_delete"]
+
+[[case]]
+id = "login-first"
+question = "Login endpoint'ini ilk olarak kim ve ne zaman ekledi?"
+expected = ["login"]
+expect_text = ["Mehmet"]
+
+[[case]]
+id = "explain-commit"
+question = "{sha:rate_limit} commit'i ne yaptı ve neden?"
+expected = ["rate_limit"]
+expect_text = ["brute"]
+
+[[case]]
+id = "settings-added"
+question = "Ayarlar dosyası (config/settings.py) ne zaman eklendi?"
+expected = ["settings"]
+
+[[case]]
+id = "not-found-paypal"
+question = "PayPal entegrasyonu ne zaman eklendi?"
+expected = []
+expect_not_found = true
+
+[[case]]
+id = "not-found-redis-en"
+question = "When was the Redis cache layer removed?"
+expected = []
+expect_not_found = true
