@@ -11,6 +11,7 @@
 bir komut satırı aracıdır. Her iddia bir commit SHA'sı, tarih ve varsa arkasındaki GitLab merge
 request'i ve issue'su ile desteklenir. Her referans size ulaşmadan önce doğrulanır.
 
+[![CI](https://github.com/tufekcii/gitex/actions/workflows/ci.yml/badge.svg)](https://github.com/tufekcii/gitex/actions/workflows/ci.yml)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![uv](https://img.shields.io/badge/packaged%20with-uv-DE5FE9?logo=astral&logoColor=white)](https://docs.astral.sh/uv/)
 [![Ruff](https://img.shields.io/badge/lint-ruff-D7FF64?logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
@@ -138,7 +139,7 @@ kurulum sihirbazını açar.
 <td>
 
 ```powershell
-git clone <repo-url> gitex
+git clone https://github.com/tufekcii/gitex.git
 cd gitex
 .\install.cmd
 ```
@@ -147,7 +148,7 @@ cd gitex
 <td>
 
 ```bash
-git clone <repo-url> gitex
+git clone https://github.com/tufekcii/gitex.git
 cd gitex
 ./install.sh
 ```
