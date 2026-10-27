@@ -1,0 +1,25 @@
+# Değişiklik günlüğü
+
+Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esaslıdır; sürümler
+[SemVer](https://semver.org/lang/tr/) izler.
+
+## [Yayınlanmadı]
+
+### Eklendi
+- `gitsor chat`: takip sorularında bağlamı koruyan etkileşimli oturum (`/yeni`, `/mod`, `/json`,
+  `/çık`); büyüyen geçmiş, eski turları budamak yerine özetle yeni konuşma açılarak sıkıştırılır.
+- Hata mesajları: git deposu değil, boş depo, GitLab token'ı yok / yetkisiz, proje bulunamadı,
+  LLM'e ulaşılamıyor, Claude kimlik bilgisi yok — her biri çözüm ipucuyla.
+
+## [0.1.0] — 2026-10-27
+
+### Eklendi
+- Yerel git okuma (NUL ayraçlı `git log`, pickaxe `-S/-G`, `-L` satır geçmişi, blame, rename
+  takibi, merge/boş depo desteği).
+- SQLite + FTS5 indeks; Türkçe katlama (`ödeme`/`odeme`, `kullanıcı`/`kullanici`), artımlı
+  indeksleme ve rebase/force-push sonrası temizlik.
+- LLM katmanı: OpenAI uyumlu uç noktalar (vLLM, Ollama, OpenAI) ve Anthropic Claude API.
+- Ajan (tool-use) ve simple mod; kaynak doğrulama ve uydurma referans düzeltmesi.
+- Gizli bilgi maskeleme, `exclude_paths`, `send_diffs`, `--show-context`.
+- GitLab senkronizasyonu: MR, review yorumları, issue'lar, SHA↔MR (merge/squash) eşlemesi.
+- Komutlar: `init`, `index`, `sync`, `ask`, `explain`, `when`, `file`, `status`; `--json` çıktı.

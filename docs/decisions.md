@@ -29,3 +29,4 @@ Her satır: tarih — karar — gerekçe.
 - 2026-10-27 — Senkron imleci (`gitlab_last_sync`) istek başlamadan alınan zamandır; senkron sırasında güncellenenler bir sonraki turda tekrar gelir (idempotent yazım).
 - 2026-10-27 — `gitlab.project` değişirse GitLab verisi sıfırdan senkronlanır.
 - 2026-10-27 — SHA→MR eşlemesi: MR commit listesi + `merge_commit_sha` + `squash_commit_sha`. Rebase ile merge edilen MR'larda main'deki SHA'lar MR listesindekilerden farklı olabilir; bu durumda eşleme yalnızca merge/squash commit'i üzerinden yapılabilir (bilinen sınırlama).
+- 2026-10-27 — chat geçmişi büyüyünce yerinde budanmaz; son turların özetiyle yeni konuşma açılır (bazı sağlayıcılar düzenlenmiş geçmişi reddeder). Simple mod durumsuz olduğundan takip sorularına son 3 tur metin olarak eklenir.

@@ -189,3 +189,40 @@ def test_sync_without_gitlab(fixture_repo: FixtureRepo) -> None:
     result = runner.invoke(app, ["-C", str(fixture_repo.path), "sync"])
     assert result.exit_code == 1
     assert "GitLab ayarlanmamış" in result.output
+
+
+def test_chat_keeps_context(fixture_repo: FixtureRepo, monkeypatch) -> None:
+    from tests.fakes import ScriptedProvider, text
+
+    sha = fixture_repo.sha("soft_delete")[:7]
+    provider = ScriptedProvider(
+        [text(f"{sha} ile soft-delete'e geçti."), text("Zeynep Kaya yaptı.")]
+    )
+    _use_provider(monkeypatch, provider)
+    result = runner.invoke(
+        app,
+        ["-C", str(fixture_repo.path), "chat", "-q"],
+        input="Kullanıcı silme ne zaman soft-delete oldu?\nKim yaptı?\n/çık\n",
+    )
+    assert result.exit_code == 0, result.output
+    assert "Zeynep Kaya yaptı" in result.output
+    second = provider.calls[1][0]
+    contents = [m.content for m in second]
+    assert "Kullanıcı silme ne zaman soft-delete oldu?" in contents
+    assert any(sha in c for c in contents)
+
+
+def test_chat_simple_mode_followup(fixture_repo: FixtureRepo, monkeypatch) -> None:
+    from tests.fakes import ScriptedProvider, text
+
+    provider = ScriptedProvider([text("Bulamadım."), text("{}"), text("Yine bulamadım.")])
+    _use_provider(monkeypatch, provider)
+    result = runner.invoke(
+        app,
+        ["-C", str(fixture_repo.path), "chat", "--mode", "simple", "-q"],
+        input="`debug_dump` ne zaman?\n/yeni\n/mod simple\nPeki neden?\n",
+    )
+    assert result.exit_code == 0, result.output
+    assert "Konuşma sıfırlandı" in result.output
+    # /yeni sonrası önceki tur eklenmemeli.
+    assert "Önceki konuşma" not in provider.calls[-1][0][-1].content

@@ -421,6 +421,75 @@ def ask(
         raise _fail(exc) from exc
 
 
+_CHAT_HELP = """\
+[bold]gitsor chat[/] — takip soruları önceki bağlamı korur.
+Komutlar: [bold]/yeni[/] konuşmayı sıfırla · [bold]/mod agent|simple[/] · [bold]/json[/] son cevabın
+kaynakları · [bold]/çık[/] (ya da Ctrl+D)"""
+
+
+@app.command()
+def chat(
+    mode: str | None = _MODE_OPT,
+    show_context: bool = _SHOW_OPT,
+    quiet: bool = _QUIET_OPT,
+) -> None:
+    """Etkileşimli oturum; takip soruları bağlamı korur."""
+    try:
+        if mode not in (None, "agent", "simple"):
+            raise GitsorError(f"Geçersiz mod: {mode}", hint="agent ya da simple")
+        session = _open_session(show_context=show_context, quiet=quiet)
+    except GitsorError as exc:
+        raise _fail(exc) from exc
+    current_mode = mode or session.config.llm.mode
+    last: AgentResult | None = None
+    console.print(_CHAT_HELP)
+    try:
+        while True:
+            try:
+                line = console.input("[bold cyan]›[/] ").strip()
+            except (EOFError, KeyboardInterrupt):
+                console.print()
+                break
+            if not line:
+                continue
+            if line.lower() in ("/çık", "/cik", "/exit", "/quit", "/q"):
+                break
+            if line == "/yeni":
+                session.reset()
+                console.print("[dim]Konuşma sıfırlandı.[/]")
+                continue
+            if line.startswith("/mod"):
+                choice = line.removeprefix("/mod").strip()
+                if choice in ("agent", "simple"):
+                    current_mode = choice
+                    console.print(f"[dim]Mod: {current_mode}[/]")
+                else:
+                    console.print("[yellow]Kullanım: /mod agent|simple[/]")
+                continue
+            if line == "/json":
+                if last is not None:
+                    typer.echo(json.dumps(last.to_dict(), ensure_ascii=False, indent=2))
+                continue
+            if line.startswith("/"):
+                console.print("[yellow]Bilinmeyen komut.[/]")
+                continue
+            try:
+                last = session.ask(
+                    line,
+                    mode=current_mode,  # type: ignore[arg-type]
+                    keep_history=True,
+                    on_event=_event_printer(quiet),
+                )
+            except GitsorError as exc:
+                err_console.print(f"[bold red]Hata:[/] {exc}")
+                if exc.hint:
+                    err_console.print(f"[dim]İpucu: {exc.hint}[/]")
+                continue
+            _print_result(last, as_json=False)
+    finally:
+        session.close()
+
+
 @app.command()
 def explain(
     target: str = typer.Argument(..., help="Commit SHA'sı ya da !MR numarası."),
@@ -620,4 +689,8 @@ def run() -> None:  # pragma: no cover - giriş noktası
             reconfigure = getattr(stream, "reconfigure", None)
             if reconfigure:
                 reconfigure(encoding="utf-8")
-    app()
+    try:
+        app()
+    except KeyboardInterrupt:
+        err_console.print("[dim]İptal edildi.[/]")
+        sys.exit(130)

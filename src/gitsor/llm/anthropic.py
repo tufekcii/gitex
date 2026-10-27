@@ -91,7 +91,13 @@ class AnthropicProvider:
                 kwargs["api_key"] = key
             if cfg.base_url:
                 kwargs["base_url"] = cfg.base_url
-            client = anthropic.Anthropic(**kwargs)
+            try:
+                client = anthropic.Anthropic(**kwargs)
+            except anthropic.AnthropicError as exc:
+                raise LLMError(
+                    "Claude API istemcisi oluşturulamadı (kimlik bilgisi yok).",
+                    hint=f"`{cfg.api_key_env}` ya da ANTHROPIC_API_KEY ortam değişkenini ayarlayın.",
+                ) from exc
         self.client = client
 
     def chat(self, messages: list[Message], tools: list[ToolSpec] | None = None) -> LLMResponse:
